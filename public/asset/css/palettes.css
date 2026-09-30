@@ -1,0 +1,80 @@
+/* =============================================================
+   LinkBuilder Design System — 브랜드 팔레트
+   design-system.css 다음에 로드. html[data-palette]로 brand 토큰만 교체.
+   SaaS · 신뢰·전문성 중심 프리셋
+   ============================================================= */
+
+/* 신뢰 블루 — 기본(:root)과 동일 */
+[data-palette="blue"] {
+  --brand-50:  #eff5ff;
+  --brand-100: #dbe8fe;
+  --brand-200: #bfd7fe;
+  --brand-300: #93bbfd;
+  --brand-400: #6096fa;
+  --brand-500: #3b76f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4fd7;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+}
+
+/* 엔터프라이즈 네이비 — 깊은 블루, B2B·금융 SaaS */
+[data-palette="navy"] {
+  --brand-50:  #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #1e40af;
+  --brand-700: #1e3a8a;
+  --brand-800: #172554;
+  --brand-900: #0f2347;
+  --brand-950: #081628;
+}
+
+/* 프로페셔널 틸 — 안정·보안, 핀테크·데이터 SaaS */
+[data-palette="teal"] {
+  --brand-50:  #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+  --brand-900: #134e4a;
+  --brand-950: #042f2e;
+}
+
+/* 클린 스카이 — 명료·투명, 협업·생산성 SaaS */
+[data-palette="sky"] {
+  --brand-50:  #f0f9ff;
+  --brand-100: #e0f2fe;
+  --brand-200: #bae6fd;
+  --brand-300: #7dd3fc;
+  --brand-400: #38bdf8;
+  --brand-500: #0ea5e9;
+  --brand-600: #0284c7;
+  --brand-700: #0369a1;
+  --brand-800: #075985;
+  --brand-900: #0c4a6e;
+  --brand-950: #082f49;
+}
+
+/* B2B 인디고 — 차분·신뢰, 업무용 SaaS */
+[data-palette="indigo"] {
+  --brand-50:  #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-300: #a5b4fc;
+  --brand-400: #818cf8;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-800: #3730a3;
+  --brand-900: #312e81;
+  --brand-950: #1e1b4b;
+}

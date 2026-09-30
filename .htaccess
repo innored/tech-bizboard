@@ -1,0 +1,41 @@
+# TechBizBoard 프런트 라우팅 — 웹에 드러나는 건 public/ 아래뿐이고, URL엔 소스 파일명이 안 보인다.
+# 마운트 위치에 의존하지 않는다: 개발은 서브경로(/tech-bizboard/), 운영은 루트(tbb.conbus.co.kr/)로 열려도
+# 같은 파일이 그대로 동작한다. RewriteRule 패턴은 마운트 상대경로로 매칭되고, 아래 차단 규칙은
+# THE_REQUEST(원본 요청줄)를 마운트 prefix에 상관없이 매칭하므로 RewriteBase 를 둘 필요가 없다.
+# (전용 vhost로 DocumentRoot 를 .../tech-bizboard/public 으로 잡는 방식도 여전히 가능.)
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1) 내부 구조·소스 파일명 직접 요청은 숨긴다(404). THE_REQUEST 는 내부 rewrite로 바뀌지 않으므로 안전.
+    #    마운트 prefix(/tech-bizboard/ 든 / 든)에 상관없이 해당 디렉터리/.php 직접 요청을 차단한다.
+    RewriteCond %{THE_REQUEST} \s/+(?:[^\s?]*/)?(public|src|view|lib|storage|tests|docs|doc|cron)/ [NC,OR]
+    RewriteCond %{THE_REQUEST} \s/+[^\s?]*\.php[\s?] [NC]
+    RewriteRule ^ - [R=404,L]
+
+    # 2) 정적 에셋
+    RewriteRule ^asset/(.+)$ public/asset/$1 [L]
+
+    # 3) API: /tech-bizboard/api/<name> → public/proc/<name>.php
+    RewriteRule ^api/([a-z_]+)/?$ public/proc/$1.php [L,QSA]
+
+    # 4) SSO Redirect URI · 로그아웃
+    RewriteRule ^sso/?$ public/sso/index.php [L,QSA]
+    RewriteRule ^sso/([a-z_]+)/?$ public/sso/$1.php [L,QSA]
+
+    # 5) 페이지
+    RewriteRule ^(drafts|revenues|settings|login|api-usage)/?$ public/$1.php [L,QSA]
+
+    # 6) 루트 → 대시보드
+    RewriteRule ^$ public/index.php [L,QSA]
+</IfModule>
+
+# 2차 방어선: 민감 파일 타입·닷파일은 어떤 경로로도 내주지 않는다(.env 포함).
+<FilesMatch "\.(db|sqlite|sqlite3|sql|md|log|env)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

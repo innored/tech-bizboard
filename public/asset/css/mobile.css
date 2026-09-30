@@ -1,0 +1,501 @@
+/* =============================================================
+   LinkBuilder — 모바일 적응 (≤900px)
+   문서: doc/mobile-adaptation-guide.md
+   ============================================================= */
+
+/* ---------- 1. iOS 입력 확대 방지 ---------- */
+@media (max-width: 900px) {
+  .input,
+  .textarea,
+  .select-trigger,
+  .select-native select,
+  .select-search input,
+  .listbox-search input,
+  input[type=text],
+  input[type=search],
+  input[type=email],
+  input[type=date],
+  input[type=password],
+  input[type=number],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ---------- 2. 앱 헤더 · 햄버거 ---------- */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--ink-200);
+}
+.app-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.app-header .brand .logo {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--r-md);
+  background: var(--brand-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--on-primary);
+}
+.app-header .brand .logo svg { width: 18px; height: 18px; }
+.app-header .brand-text { display: flex; flex-direction: column; min-width: 0; }
+.app-header .brand .name {
+  font-weight: 700;
+  color: var(--ink-900);
+  line-height: 1.15;
+  font-size: 15px;
+}
+.app-header .brand .ver {
+  font-size: 11px;
+  color: var(--ink-400);
+  line-height: 1.2;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.app-nav a {
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  color: var(--ink-500);
+  transition: background .15s, color .15s;
+}
+.app-nav a:hover,
+.app-nav a.is-active {
+  color: var(--brand-600);
+  background: var(--brand-subtle);
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 햄버거: 데스크톱 숨김 */
+.nav-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink-700);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+.nav-toggle svg { width: 20px; height: 20px; }
+.nav-toggle:focus-visible { outline: none; box-shadow: var(--sh-focus); }
+
+/* 모바일 네비 시트 · 딤 */
+.nav-dim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgb(15 23 42 / .4);
+}
+.nav-sheet {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-header {
+    height: 56px;
+    padding: 0 1rem;
+    position: sticky;
+  }
+  .app-header.nav-open {
+    background: var(--surface);
+    backdrop-filter: none;
+    border-bottom-color: transparent;
+  }
+  .app-header .brand {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .16rem;
+  }
+  .app-header .brand .logo { width: 28px; height: 28px; }
+  .app-header .brand .logo svg { width: 15px; height: 15px; }
+  .app-header .brand-text { flex-direction: column; }
+  .app-header .brand .name { font-size: .95rem; }
+  .app-header .brand .ver { font-size: .65rem; }
+
+  .nav-toggle { display: inline-flex; }
+  .app-nav { display: none; }
+
+  .nav-sheet {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    max-height: 0;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: none;
+    transition: max-height .25s ease, box-shadow .2s ease;
+  }
+  .app-header.nav-open .nav-sheet {
+    max-height: min(80vh, calc(100dvh - 56px));
+    overflow-y: auto;
+    box-shadow: var(--sh-float);
+  }
+  .nav-sheet .sheet-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px 16px;
+    gap: 2px;
+  }
+  .nav-sheet .sheet-nav a {
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink-700);
+  }
+  .nav-sheet .sheet-nav a:hover,
+  .nav-sheet .sheet-nav a.is-active {
+    background: var(--brand-subtle);
+    color: var(--brand-muted-text);
+  }
+  .nav-sheet .sheet-account {
+    margin: 8px 12px 16px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--ink-100);
+    font-size: 13px;
+    color: var(--ink-500);
+  }
+
+  body.nav-open { overflow: hidden; }
+  body.nav-open .nav-dim { display: block; }
+}
+
+/* ---------- 3. 탭 가로 스크롤 ---------- */
+@media (max-width: 900px) {
+  .tab-list,
+  .subtabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+  .tab-list::-webkit-scrollbar,
+  .subtabs::-webkit-scrollbar { display: none; }
+  .tab-list .tab,
+  .subtabs a {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+}
+
+/* ---------- 4. 툴바 · 필터 ---------- */
+.page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.page-toolbar .toolbar-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.page-toolbar .toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+.page-toolbar .toolbar-filters .select,
+.page-toolbar .toolbar-filters .input-wrap {
+  min-width: 140px;
+}
+.page-toolbar .filter-reset.is-disabled {
+  opacity: .45;
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .page-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .75rem;
+  }
+  .page-toolbar .toolbar-title { font-size: 1.15rem; font-weight: 700; }
+  .page-toolbar .toolbar-filters {
+    margin-left: 0;
+    width: 100%;
+  }
+  .page-toolbar .toolbar-filters .select,
+  .page-toolbar .toolbar-filters .input-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* ---------- 5. 테이블 → 카드 ---------- */
+@media (max-width: 900px) {
+  .table-wrap.is-cards-mobile {
+    max-height: none;
+    border: none;
+    background: transparent;
+    overflow: visible;
+    border-radius: 0;
+  }
+  .table-wrap.is-cards-mobile table.table {
+    border: none;
+    background: transparent;
+  }
+  .table-wrap.is-cards-mobile table.table thead,
+  .table-wrap.is-cards-mobile table.table colgroup {
+    display: none;
+  }
+  .table-wrap.is-cards-mobile table.table tbody {
+    display: block;
+  }
+  .table-wrap.is-cards-mobile table.table tbody tr {
+    display: block;
+    margin-bottom: .75rem;
+    padding: 1rem 1.05rem;
+    background: var(--surface);
+    border: 1px solid var(--ink-200);
+    border-radius: var(--r-card);
+    box-shadow: var(--sh-card);
+  }
+  .table-wrap.is-cards-mobile table.table td {
+    display: block;
+    width: 100%;
+    border: none;
+    padding: 0;
+    white-space: normal;
+  }
+  .table-wrap.is-cards-mobile table.table tbody tr:hover td {
+    background: transparent;
+  }
+
+  /* 카드 내부 위계 — data-role로 배치 */
+  .table-wrap.is-cards-mobile td[data-role="check"] {
+    position: absolute;
+    top: 1rem;
+    right: 1.05rem;
+    width: auto;
+  }
+  .table-wrap.is-cards-mobile tbody tr { position: relative; }
+
+  .table-wrap.is-cards-mobile td[data-role="type"] {
+    margin-bottom: .5rem;
+  }
+  .table-wrap.is-cards-mobile td[data-role="type"] .badge {
+    font-size: .82rem;
+    font-weight: 700;
+    padding: .28rem .65rem;
+  }
+
+  .table-wrap.is-cards-mobile td[data-role="identity"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    margin-bottom: .65rem;
+    padding-right: 36px;
+  }
+  .table-wrap.is-cards-mobile td[data-role="identity"] .id-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink-900);
+    flex: none;
+  }
+  .table-wrap.is-cards-mobile td[data-role="identity"] .id-link {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .8rem;
+    color: var(--ink-500);
+  }
+  .table-wrap.is-cards-mobile td[data-role="identity"] .badge {
+    flex: none;
+  }
+
+  .table-wrap.is-cards-mobile td[data-role="meta"] {
+    padding-top: .65rem;
+    margin-top: .15rem;
+    border-top: 1px solid var(--ink-100);
+    font-size: .8rem;
+    color: var(--ink-500);
+    line-height: 1.5;
+  }
+
+  .table-wrap.is-cards-mobile td[data-role="actions"] {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding-top: .75rem;
+    margin-top: .65rem;
+    border-top: 1px solid var(--ink-100);
+  }
+  .table-wrap.is-cards-mobile td[data-role="actions"] .btn {
+    height: 36px;
+    font-size: 16px;
+  }
+  .table-wrap.is-cards-mobile td[data-role="actions"] .btn:not(.btn-icon) {
+    flex: 1;
+  }
+
+  /* PC 전용 열 숨김 (카드에서 재배치된 경우) */
+  .table-wrap.is-cards-mobile td.pc-only,
+  .table-wrap.is-cards-mobile th.pc-only {
+    display: none !important;
+  }
+
+  /* 라벨형(선택): data-label */
+  .table-wrap.is-cards-mobile td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+    margin-bottom: 4px;
+  }
+  .table-wrap.is-cards-mobile td[data-role]::before {
+    display: none; /* 액션형 카드는 라벨 숨김 */
+  }
+}
+
+/* ---------- 6. 폼 스택 ---------- */
+@media (max-width: 900px) {
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+  }
+  .form-row > * {
+    width: 100%;
+    flex: none;
+    min-width: 0;
+  }
+  .btn-submit,
+  .primary-submit {
+    width: 100%;
+  }
+  .kv-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .kv-row .kv-key { width: 36%; flex: none; min-width: 0; }
+  .kv-row .kv-val { flex: 1; min-width: 0; }
+  .kv-row .btn-icon { flex: none; }
+}
+
+/* ---------- 7. 페이지네이션 ---------- */
+@media (max-width: 900px) {
+  .pagination {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+  }
+  .pagination-info {
+    order: 2;
+    width: 100%;
+    text-align: center;
+    border-right: none;
+    margin: 0;
+    padding: 0;
+  }
+  .pagination .page-btn,
+  .pagination .ellipsis {
+    order: 1;
+  }
+}
+
+/* ---------- 8. 푸터 ---------- */
+.app-footer {
+  border-top: 1px solid var(--ink-200);
+  background: var(--surface);
+  margin-top: 40px;
+}
+.app-footer .bar {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--ink-500);
+}
+.app-footer a { color: var(--ink-600); }
+.app-footer a:hover { color: var(--brand-600); }
+
+@media (max-width: 900px) {
+  .app-footer .bar {
+    flex-direction: column;
+    text-align: center;
+    padding: 16px 1.25rem;
+  }
+}
+
+/* ---------- 9. 페이지 셸 ---------- */
+.app-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+@media (max-width: 900px) {
+  .app-main {
+    max-width: none;
+    padding: 16px 1.25rem 40px;
+  }
+  .app-main > .text-h1,
+  .app-main > .page-title {
+    font-size: 1.15rem;
+  }
+}
+
+/* ---------- 10. 표시 유틸 ---------- */
+.mobile-only { display: none !important; }
+@media (max-width: 900px) {
+  .mobile-only { display: initial !important; }
+  .mobile-only.badge,
+  span.mobile-only.badge { display: inline-flex !important; }
+  .pc-only { display: none !important; }
+}

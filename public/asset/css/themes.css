@@ -1,0 +1,83 @@
+/* =============================================================
+   LinkBuilder Design System — 라이트 / 다크 테마
+   design-system.css 다음, palettes.css 다음에 로드.
+   html[data-theme="dark"] — 중립·표면·시맨틱 (brand 팔레트와 독립)
+   ============================================================= */
+
+:root {
+  color-scheme: light;
+
+  /* 표면 */
+  --bg-page: var(--ink-50);
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+
+  /* 브랜드 tinted surface (팔레트 변경 시 자동 연동) */
+  --brand-subtle: color-mix(in srgb, var(--brand-600) 8%, var(--surface));
+  --brand-subtle-hover: color-mix(in srgb, var(--brand-600) 14%, var(--surface));
+  --brand-muted-bg: var(--brand-50);
+  --brand-muted-bg-hover: var(--brand-100);
+  --brand-muted-text: var(--brand-700);
+  --brand-muted-border: var(--brand-100);
+
+  /* 고정 UI */
+  --on-primary: #ffffff;
+  --code-bg: #0f172a;
+  --code-fg: var(--brand-200);
+  --code-val: #ffffff;
+  --tooltip-bg: #0f172a;
+  --tooltip-fg: #f8fafc;
+  --info-bg: #e0f2fe;
+
+  /* Alert 텍스트 */
+  --alert-success-title: #064e3b;
+  --alert-success-body: #065f46;
+  --alert-danger-title: #7f1d1d;
+  --alert-danger-body: #991b1b;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Neutral invert */
+  --ink-50:  #0b1220;
+  --ink-100: #1e293b;
+  --ink-200: #334155;
+  --ink-300: #475569;
+  --ink-400: #64748b;
+  --ink-500: #94a3b8;
+  --ink-600: #cbd5e1;
+  --ink-700: #e2e8f0;
+  --ink-800: #f1f5f9;
+  --ink-900: #f8fafc;
+
+  /* Semantic (다크 배경용) */
+  --success-bg: #052e22;
+  --success-bd: #065f46;
+  --warning-bg: #422006;
+  --warning-bd: #92400e;
+  --danger-bg: #450a0a;
+  --danger-bd: #991b1b;
+
+  --bg-page: #0b1220;
+  --surface: #1e293b;
+  --surface-raised: #334155;
+
+  --brand-subtle: color-mix(in srgb, var(--brand-600) 16%, var(--surface));
+  --brand-subtle-hover: color-mix(in srgb, var(--brand-600) 24%, var(--surface));
+  --brand-muted-bg: color-mix(in srgb, var(--brand-600) 18%, var(--surface));
+  --brand-muted-bg-hover: color-mix(in srgb, var(--brand-600) 26%, var(--surface));
+  --brand-muted-text: color-mix(in srgb, var(--brand-300) 85%, #fff);
+  --brand-muted-border: color-mix(in srgb, var(--brand-600) 28%, var(--surface));
+
+  --code-bg: #020617;
+  --info-bg: color-mix(in srgb, var(--info) 16%, var(--surface));
+
+  --alert-success-title: #6ee7b7;
+  --alert-success-body: #a7f3d0;
+  --alert-danger-title: #fecaca;
+  --alert-danger-body: #fca5a5;
+
+  --sh-card: 0 1px 3px 0 rgb(0 0 0 / .35), 0 1px 2px -1px rgb(0 0 0 / .28);
+  --sh-float: 0 10px 30px -12px rgb(0 0 0 / .45);
+}

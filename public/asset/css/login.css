@@ -1,0 +1,240 @@
+/* 미로그인 첫 화면. 눈금은 글 칸에만 두고 48px 줄에 맞춘다. */
+
+.login-html {
+  --brand-400: #6096fa;
+  --brand-500: #3b76f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4fd7;
+  --brand-800: #1e40af;
+  --ink-50: #f8fafc;
+  --ink-100: #f1f5f9;
+  --ink-400: #94a3b8;
+  --ink-500: #64748b;
+  --ink-800: #1e293b;
+  --ink-900: #0f172a;
+  --on-primary: #ffffff;
+  --ledger-row: 48px;
+  --ledger-rule: rgba(248, 250, 252, 0.14);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.login-html,
+.login-body {
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+}
+
+.login-body {
+  font-family: "Pretendard GOV Variable", "Pretendard GOV", sans-serif;
+  color: var(--ink-800);
+  background: var(--ink-100);
+}
+
+.login-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.login-ledger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  padding: calc(var(--ledger-row) * 2) var(--ledger-row);
+  color: var(--ink-50);
+  background: var(--ink-900);
+}
+
+.login-mark,
+.login-kicker,
+.login-title,
+.login-lead,
+.login-rule {
+  width: min(100%, 36rem);
+  margin: 0;
+  padding: 0 16px 0 24px;
+  border-left: 2px solid var(--brand-500);
+  border-bottom: 1px solid var(--ledger-rule);
+}
+
+.login-mark {
+  border-top: 1px solid var(--ledger-rule);
+  height: var(--ledger-row);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: var(--ledger-row);
+  text-transform: uppercase;
+  color: var(--ink-400);
+}
+
+.login-kicker {
+  height: var(--ledger-row);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  line-height: var(--ledger-row);
+  color: var(--brand-400);
+}
+
+.login-title,
+.login-lead {
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--ledger-row) - 1px),
+    var(--ledger-rule) var(--ledger-row)
+  );
+  background-size: 100% var(--ledger-row);
+}
+
+.login-title {
+  height: calc(var(--ledger-row) * 2);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: var(--ledger-row);
+}
+
+.login-lead {
+  min-height: var(--ledger-row);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: var(--ledger-row);
+  color: var(--ink-400);
+}
+
+.login-rule {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  height: var(--ledger-row);
+  padding: 0;
+  color: var(--ink-400);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.login-rule span {
+  padding: 0 12px 0 24px;
+  border-right: 1px solid var(--ledger-rule);
+  line-height: var(--ledger-row);
+}
+
+.login-rule span:last-child {
+  border-right: 0;
+}
+
+.login-dock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--ledger-row) * 2) 40px;
+  background: var(--ink-50);
+}
+
+.login-dock-inner {
+  width: min(100%, 320px);
+}
+
+.login-dock-kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--ink-500);
+}
+
+.login-dock-copy {
+  margin: 0 0 24px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.5;
+  color: var(--ink-900);
+}
+
+.login-stamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--brand-600);
+  color: var(--on-primary);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.login-stamp:hover {
+  background: var(--brand-700);
+}
+
+.login-stamp:active {
+  background: var(--brand-800);
+}
+
+.login-stamp:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-600) 25%, transparent);
+}
+
+.login-hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-500);
+}
+
+.login-apply {
+  color: var(--brand-600);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.login-apply:hover {
+  text-decoration: underline;
+}
+
+.login-apply:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+
+@media (max-width: 800px) {
+  .login-split {
+    grid-template-columns: 1fr;
+  }
+
+  .login-ledger {
+    min-height: auto;
+    padding: var(--ledger-row) 24px;
+  }
+
+  .login-title {
+    font-size: 32px;
+  }
+
+  .login-dock {
+    align-items: flex-start;
+    padding: 36px 24px 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-stamp {
+    transition: none;
+  }
+}
