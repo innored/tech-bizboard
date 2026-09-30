@@ -124,8 +124,8 @@ class Database
     {
         $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         $file = $driver === 'mysql'
-            ? tbb_root() . '/storage/schema.mysql.sql'
-            : tbb_root() . '/storage/schema.sql';
+            ? tbb_root() . '/sql/schema.mysql.sql'
+            : tbb_root() . '/sql/schema.sql';
         $sql = file_get_contents($file);
         if (!is_string($sql) || trim($sql) === '') {
             throw new RuntimeException($file . ' 을 읽을 수 없습니다.');
@@ -487,9 +487,9 @@ class Database
         if (self::templateCount($pdo) > 0) {
             return;
         }
-        $sql = file_get_contents(tbb_root() . '/storage/seed_templates.sql');
+        $sql = file_get_contents(tbb_root() . '/sql/seed_templates.sql');
         if (!is_string($sql) || trim($sql) === '') {
-            throw new RuntimeException('storage/seed_templates.sql 을 읽을 수 없습니다.');
+            throw new RuntimeException('sql/seed_templates.sql 을 읽을 수 없습니다.');
         }
         $pdo->exec($sql);
     }

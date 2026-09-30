@@ -2,7 +2,19 @@
 .env
 
 
+# storage: 런타임 생성물·업로드물은 커밋하지 않되, 폴더 구조는 유지한다.
+# (스키마·시드 SQL 은 sql/ 로 이동 — 그건 순수 소스라 기본 커밋됨)
 storage/*
+!storage/cache/
+!storage/receipts/
+
+# cache: 폴더만 유지, 내용물(환율·API 사용량 캐시)은 무시
+storage/cache/*
+!storage/cache/.gitkeep
+
+# receipts: 보호용 .htaccess 만 유지, 업로드된 영수증 파일·월별 폴더는 무시
+storage/receipts/*
+!storage/receipts/.htaccess
 
 .superpowers/
 docs/superpowers

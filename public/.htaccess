@@ -1,0 +1,41 @@
+# 전용 vhost용 라우팅 — DocumentRoot 를 이 public/ 로 잡았을 때 클린 URL을 각 php로 매핑한다.
+# (개발처럼 상위 tech-bizboard/.htaccess 가 먼저 도는 서브경로 구성에서도, 그 rewrite가
+#  public/ 안으로 들어온 뒤 이 파일이 이어서 돌기 때문에 그대로 안전하게 동작한다.)
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1) .php 직접 요청은 숨긴다(클린 URL만 노출). THE_REQUEST 는 내부 rewrite로 바뀌지 않으므로,
+    #    /api/foo 가 내부적으로 proc/foo.php 로 바뀌어도 원본 요청엔 .php 가 없어 차단되지 않는다.
+    RewriteCond %{THE_REQUEST} \s/+[^\s?]*\.php[\s?] [NC]
+    RewriteRule ^ - [R=404,L]
+
+    # 2) 실제 존재하는 파일(에셋 등)은 그대로 서빙한다. 디렉터리(-d)는 제외한다 —
+    #    sso/ 처럼 라우트 이름과 같은 실제 폴더가 있어, -d 까지 통과시키면 /sso/ 가 라우팅 전에 샌다.
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # 3) API: /api/<name> → proc/<name>.php
+    RewriteRule ^api/([a-z_]+)/?$ proc/$1.php [L,QSA]
+
+    # 4) SSO Redirect URI · 로그아웃
+    RewriteRule ^sso/?$ sso/index.php [L,QSA]
+    RewriteRule ^sso/([a-z_]+)/?$ sso/$1.php [L,QSA]
+
+    # 5) 페이지
+    RewriteRule ^(drafts|revenues|settings|login|api-usage)/?$ $1.php [L,QSA]
+
+    # 6) 루트 → 대시보드
+    RewriteRule ^$ index.php [L,QSA]
+</IfModule>
+
+# src/·view/·lib/·storage/ 는 이 docroot(public) 바깥이라 웹에서 접근 자체가 불가하다.
+# 그래도 혹시 모를 민감 파일 타입·닷파일은 어떤 경로로도 내주지 않는다.
+<FilesMatch "\.(db|sqlite|sqlite3|sql|md|log|env)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

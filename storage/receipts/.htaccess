@@ -1,0 +1,8 @@
+# 업로드된 영수증 원본 — 웹 직접 접근 금지. 인증된 PHP 다운로드 엔드포인트로만 제공.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>
