@@ -78,10 +78,10 @@ class RevenueTemplateProvider
         $row['created_by'] = $this->createdBy;
         $stmt = $this->pdo->prepare(
             'INSERT INTO tb_revenue_templates (
-                project_name, client_name, supply_krw, assignee,
+                project_name, client_name, service_category, supply_krw, assignee,
                 start_year_month, end_year_month, note, is_active, created_by, created_at
             ) VALUES (
-                :project_name, :client_name, :supply_krw, :assignee,
+                :project_name, :client_name, :service_category, :supply_krw, :assignee,
                 :start_year_month, :end_year_month, :note, :is_active, :created_by, :created_at
             )'
         );
@@ -103,6 +103,7 @@ class RevenueTemplateProvider
             'UPDATE tb_revenue_templates
              SET project_name = :project_name,
                  client_name = :client_name,
+                 service_category = :service_category,
                  supply_krw = :supply_krw,
                  assignee = :assignee,
                  start_year_month = :start_year_month,
@@ -172,9 +173,15 @@ class RevenueTemplateProvider
         $client = trim((string) ($data['client_name'] ?? ''));
         $note = trim((string) ($data['note'] ?? ''));
 
+        $category = trim((string) ($data['service_category'] ?? ''));
+        if ($category !== '' && !in_array($category, TeamRevenueProvider::SERVICE_CATEGORIES, true)) {
+            throw new InvalidArgumentException('서비스 구분 값이 올바르지 않습니다.');
+        }
+
         return [
             'project_name'     => $name,
             'client_name'      => $client === '' ? null : $client,
+            'service_category' => $category,
             'supply_krw'       => $supply,
             'assignee'         => $assignee,
             'start_year_month' => $start,
