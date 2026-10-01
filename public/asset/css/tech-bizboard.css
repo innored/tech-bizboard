@@ -2155,3 +2155,89 @@ body.rev-modal-open { overflow: hidden; }
   .rev-modal-note { grid-column: 1; }
 }
 .draft-attach-additem { margin-top: 8px; color: var(--brand-600); }
+
+/* ── Revenue 증빙(evidence) section ─────────────────────────────── */
+/* hint shown before the record is saved */
+.rev-receipts-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-400);
+}
+
+/* dropzone — mirrors .draft-receipt-dropzone */
+.rev-receipts-dropzone {
+  border: 2px dashed var(--ink-300);
+  border-radius: var(--r-md);
+  background: var(--ink-50);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.rev-receipts-dropzone:hover,
+.rev-receipts-dropzone.is-dragover {
+  border-color: var(--brand-400);
+  background: var(--brand-subtle);
+}
+.rev-receipts-input { display: none; }
+.rev-receipts-dz-label {
+  font-size: 0.8125rem;
+  color: var(--ink-500);
+  pointer-events: none;
+}
+
+/* upload-in-progress indicator */
+.rev-receipts-progress {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-400);
+}
+
+/* file list — mirrors .draft-receipt-files-list / item pattern */
+.rev-receipts-file-list { margin-top: 10px; }
+.rev-receipts-empty {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-400);
+}
+.rev-receipts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rev-receipts-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 12px;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  border-radius: 8px;
+}
+.rev-receipts-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--brand-600);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rev-receipts-name:hover { text-decoration: underline; }
+.rev-receipts-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ink-400);
+}
+.rev-receipts-del { flex-shrink: 0; }
+
+/* disabled state — section-level, set via [data-receipts-disabled] on #rev-m-receipts */
+#rev-m-receipts[data-receipts-disabled] {
+  opacity: .5;
+  pointer-events: none;
+}
