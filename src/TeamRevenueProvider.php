@@ -10,6 +10,9 @@ declare(strict_types=1);
 
 class TeamRevenueProvider
 {
+    /** 서비스 구분 고정 목록 */
+    public const SERVICE_CATEGORIES = ['솔루션 서비스', '컨설팅', '기타'];
+
     private string $createdBy = '';
     private ?DateTimeImmutable $now = null;
     private bool $bypassMonthLock = false;
@@ -212,6 +215,9 @@ class TeamRevenueProvider
              SET target_year_month = :target_year_month,
                  project_name = :project_name,
                  client_name = :client_name,
+                 service_category = :service_category,
+                 billing_type = :billing_type,
+                 list_value_krw = :list_value_krw,
                  supply_krw = :supply_krw,
                  vat_krw = :vat_krw,
                  amount_krw = :amount_krw,
@@ -226,6 +232,9 @@ class TeamRevenueProvider
             'target_year_month' => $row['target_year_month'],
             'project_name'      => $row['project_name'],
             'client_name'       => $row['client_name'],
+            'service_category'  => $row['service_category'],
+            'billing_type'      => $row['billing_type'],
+            'list_value_krw'    => $row['list_value_krw'],
             'supply_krw'        => $row['supply_krw'],
             'vat_krw'           => $row['vat_krw'],
             'amount_krw'        => $row['amount_krw'],
@@ -277,16 +286,25 @@ class TeamRevenueProvider
         $stmt = $this->pdo->prepare(
             'INSERT INTO tb_team_revenues (
                 revenue_template_id, target_year_month, project_name, client_name,
-                supply_krw, vat_krw, amount_krw, status, received_date, assignee, note,
-                created_by, created_at
+                service_category, supply_krw, vat_krw, amount_krw, billing_type, list_value_krw,
+                status, received_date, assignee, note, created_by, created_at
             ) VALUES (
                 :revenue_template_id, :target_year_month, :project_name, :client_name,
-                :supply_krw, :vat_krw, :amount_krw, :status, :received_date, :assignee, :note,
-                :created_by, :created_at
+                :service_category, :supply_krw, :vat_krw, :amount_krw, :billing_type, :list_value_krw,
+                :status, :received_date, :assignee, :note, :created_by, :created_at
             )'
         );
         if (!array_key_exists('created_by', $row)) {
             $row['created_by'] = $this->createdBy;
+        }
+        if (!array_key_exists('service_category', $row)) {
+            $row['service_category'] = '';
+        }
+        if (!array_key_exists('billing_type', $row)) {
+            $row['billing_type'] = 'PAID';
+        }
+        if (!array_key_exists('list_value_krw', $row)) {
+            $row['list_value_krw'] = 0;
         }
         $stmt->execute($row);
     }
@@ -323,6 +341,28 @@ class TeamRevenueProvider
             throw new InvalidArgumentException('입금일은 YYYY-MM-DD 형식이어야 합니다.');
         }
         $money = $this->normalizeMoney($data);
+        $category = trim((string) ($data['service_category'] ?? ''));
+        if ($category !== '' && !in_array($category, self::SERVICE_CATEGORIES, true)) {
+            throw new InvalidArgumentException('서비스 구분 값이 올바르지 않습니다.');
+        }
+        $billing = strtoupper(trim((string) ($data['billing_type'] ?? 'PAID')));
+        if ($billing !== 'PAID' && $billing !== 'FREE') {
+            throw new InvalidArgumentException('유상/무상 값이 올바르지 않습니다.');
+        }
+        $listValue = (int) ($data['list_value_krw'] ?? 0);
+        if ($listValue < 0) {
+            throw new InvalidArgumentException('정상가는 0 이상이어야 합니다.');
+        }
+        if ($billing === 'FREE') {
+            // 무상: 실수입 0, 정상가만 보존
+            $money = ['supply_krw' => 0, 'vat_krw' => 0, 'amount_krw' => 0];
+        } else {
+            $listValue = 0; // 유상은 정상가 미사용
+            // money_field 가 없으면 공급가에서 부가세·합계를 자동 계산한다.
+            if (trim((string) ($data['money_field'] ?? '')) === '') {
+                $money = self::applySupply($money['supply_krw']);
+            }
+        }
         $status = strtoupper(trim((string) ($data['status'] ?? ($creating ? 'COMPLETED' : 'COMPLETED'))));
         if ($status !== 'PENDING' && $status !== 'COMPLETED') {
             throw new InvalidArgumentException('상태는 PENDING, COMPLETED 만 허용합니다.');
@@ -335,6 +375,9 @@ class TeamRevenueProvider
             'target_year_month'   => substr($date, 0, 7),
             'project_name'        => $name,
             'client_name'         => $client === '' ? null : $client,
+            'service_category'    => $category,
+            'billing_type'        => $billing,
+            'list_value_krw'      => $listValue,
             'supply_krw'          => $money['supply_krw'],
             'vat_krw'             => $money['vat_krw'],
             'amount_krw'          => $money['amount_krw'],
