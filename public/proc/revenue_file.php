@@ -89,7 +89,8 @@ if ($method === 'POST' && $action === 'upload') {
             ],
         ]);
     } catch (Throwable $e) {
-        rev_file_json(['ok' => false, 'error' => '저장 실패: ' . $e->getMessage()], 500);
+        error_log('revenue_file upload: ' . $e->getMessage());
+        rev_file_json(['ok' => false, 'error' => '저장에 실패했습니다.'], 500);
     } finally {
         unset($bytes);
     }
@@ -129,7 +130,7 @@ if ($method === 'GET' && $action === 'download') {
         rev_file_json(['ok' => false, 'error' => '파일이 존재하지 않습니다.'], 404);
     }
     $name     = (string) ($row['display_name'] ?? '증빙');
-    $mime     = (string) ($row['mime'] ?? 'application/octet-stream');
+    $mime     = str_replace(["\r", "\n"], '', (string) ($row['mime'] ?? 'application/octet-stream'));
     $fallback = str_replace(['"', "\\"], '_', (string) preg_replace('/[^\x20-\x7E]/', '_', $name));
 
     header('Content-Type: ' . $mime);
