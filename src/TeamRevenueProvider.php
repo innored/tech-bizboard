@@ -267,6 +267,32 @@ class TeamRevenueProvider
         return is_array($row) ? $row : null;
     }
 
+    /**
+     * 특정 월의 무상 제공 총액(정상가 합계, billing_type='FREE')
+     */
+    public function freeValueByMonth(string $yearMonth): int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT COALESCE(SUM(list_value_krw),0) FROM tb_team_revenues
+             WHERE target_year_month = :ym AND billing_type = 'FREE'"
+        );
+        $stmt->execute(['ym' => $yearMonth]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * 특정 연도의 무상 제공 총액(정상가 합계, billing_type='FREE')
+     */
+    public function freeValueByYear(string $year): int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT COALESCE(SUM(list_value_krw),0) FROM tb_team_revenues
+             WHERE target_year_month LIKE :like AND billing_type = 'FREE'"
+        );
+        $stmt->execute(['like' => $year . '-%']);
+        return (int) $stmt->fetchColumn();
+    }
+
     private function hasTemplateMonth(int $templateId, string $yearMonth): bool
     {
         $stmt = $this->pdo->prepare(

@@ -54,4 +54,9 @@ $nonStdVat = $rev->createOneOff([
 expect_eq((int) $nonStdVat['vat_krw'],    10000,  '비표준 부가세 보존(덮어쓰기 금지)');
 expect_eq((int) $nonStdVat['amount_krw'], 210000, '비표준 합계 보존(220000으로 덮으면 실패)');
 
+// 무상 제공 총액 집계 (위에서 만든 무상/전환 건 기준)
+$rev2 = new TeamRevenueProvider($pdo, new RevenueTemplateProvider($pdo));
+expect_eq($rev2->freeValueByMonth('2026-09'), 1000000, '9월 무상 제공 총액');
+expect_eq($rev2->freeValueByYear('2026'), 1000000, '2026 무상 제공 총액');
+
 tbb_test_done();
