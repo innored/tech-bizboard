@@ -525,7 +525,18 @@
   }
 
   function bootRowDate(el) {
-    if (!el || el._adp || typeof AirDatepicker === 'undefined') return;
+    if (!el || el._adp) return;
+    var onSelect = function () {
+      bodyDirty = false;
+      schedulePreview();
+    };
+    // 공유 초기화를 쓰면 공휴일 표시(onRenderCell)가 자동 포함된다. revenues 화면과 동일.
+    if (window.TechBizBoardDatepicker && typeof window.TechBizBoardDatepicker.day === 'function') {
+      window.TechBizBoardDatepicker.day(el, { onSelect: onSelect });
+      return;
+    }
+    // 폴백: 공유 초기화가 아직 없으면 로컬 설정(공휴일 표시 없음).
+    if (typeof AirDatepicker === 'undefined') return;
     el._adp = new AirDatepicker(el, {
       locale: {
         days: ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'],
@@ -543,10 +554,7 @@
       buttons: ['today', 'clear'],
       position: 'bottom left',
       container: document.body,
-      onSelect: function () {
-        bodyDirty = false;
-        schedulePreview();
-      }
+      onSelect: onSelect
     });
   }
 
