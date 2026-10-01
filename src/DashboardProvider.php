@@ -91,6 +91,13 @@ class DashboardProvider
             ->format('Y-m');
         $prevPrev = $this->monthRow($prevPrevYm);
 
+        $freeStmt = $this->pdo->prepare(
+            "SELECT COALESCE(SUM(list_value_krw),0) FROM tb_team_revenues
+             WHERE target_year_month LIKE :like AND billing_type = 'FREE'"
+        );
+        $freeStmt->execute(['like' => $year . '-%']);
+        $yearFreeValue = (int) $freeStmt->fetchColumn();
+
         return [
             'year'                => $year,
             'year_total'          => [
@@ -105,6 +112,7 @@ class DashboardProvider
             'expense_breakdown'   => $this->breakdownExpenses($year),
             'revenue_breakdown'   => $this->breakdownRevenues($year),
             'revenue_project_breakdown' => $this->breakdownRevenueProjects($year),
+            'year_free_value'     => $yearFreeValue,
             'series'              => $series,
         ];
     }

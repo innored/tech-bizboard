@@ -20,6 +20,7 @@ $summary = is_array($summary ?? null) ? $summary : [
     'previous_month'      => ['ym' => tbb_previous_month(), 'revenue_krw' => 0, 'expense_krw' => 0, 'margin_krw' => 0],
     'previous_month_prev' => ['revenue_krw' => 0, 'expense_krw' => 0, 'margin_krw' => 0],
     'break_even_month'    => null,
+    'year_free_value'     => 0,
     'series'              => [],
 ];
 $yearTotal = $summary['year_total'];
@@ -31,6 +32,7 @@ $breakEven = $summary['break_even_month'] ?? null;
 $expenseBreakdown = is_array($summary['expense_breakdown'] ?? null) ? $summary['expense_breakdown'] : [];
 $revenueBreakdown = is_array($summary['revenue_breakdown'] ?? null) ? $summary['revenue_breakdown'] : [];
 $revenueProjectBreakdown = is_array($summary['revenue_project_breakdown'] ?? null) ? $summary['revenue_project_breakdown'] : [];
+$yearFreeValue = (int) ($summary['year_free_value'] ?? 0);
 $qTotal = DashboardProvider::quarterTotal($series, $quarter);
 $qPrevTotal = $quarter > 1 ? DashboardProvider::quarterTotal($series, $quarter - 1) : null;
 
@@ -193,6 +195,10 @@ require __DIR__ . '/_header.php';
             <ul class="dash-kpi-pop-list" data-kpi-list="exp"></ul>
           </div>
         </div>
+        <div class="dash-kpi-cell">
+          <p class="dash-kpi-label">무상 제공(연)<button type="button" class="dash-kpi-info tooltip tooltip-bottom" data-tooltip="billing_type=FREE인 수입의 정상가(list_value_krw) 합계" aria-label="무상 제공 총액 설명"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button></p>
+          <p class="dash-kpi-num" data-dash="year-free-value"><?= h($fmtWon($yearFreeValue)) ?><span class="unit">원</span></p>
+        </div>
       </div>
     </section>
 
@@ -280,6 +286,7 @@ require __DIR__ . '/_header.php';
         'expense_breakdown'   => $expenseBreakdown,
         'revenue_breakdown'   => $revenueBreakdown,
         'revenue_project_breakdown' => $revenueProjectBreakdown,
+        'year_free_value'     => $yearFreeValue,
         'series'              => $series,
     ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
   </div>

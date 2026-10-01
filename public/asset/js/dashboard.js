@@ -201,6 +201,7 @@
     setShort('prev-exp-short', p.expense_krw);
     setText('dash-year-label', String(data.year) + '년');
     setText('dash-prev-label', monthLabel(p.ym));
+    setMoney('year-free-value', data.year_free_value);
   }
 
   function applyQuarter() {
