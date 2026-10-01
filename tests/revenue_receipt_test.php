@@ -18,4 +18,14 @@ expect_eq(count($prov->listFor((int) $r['id'])), 1, 'listFor 1건');
 $paths = $prov->deleteAllFor((int) $r['id']);
 expect_eq(count($paths), 1, 'deleteAllFor 경로 1건');
 expect_eq(count($prov->listFor((int) $r['id'])), 0, '삭제 후 0건');
+
+// I-1: 존재하지 않는 revenue_id 로 store() 시 InvalidArgumentException 발생
+$threw = false;
+try {
+    $prov->store(999999, 'dummy.pdf', '%PDF', 'application/pdf');
+} catch (InvalidArgumentException $e) {
+    $threw = true;
+}
+expect_true($threw, '없는 revenue_id → InvalidArgumentException');
+
 tbb_test_done();

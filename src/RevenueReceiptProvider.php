@@ -155,7 +155,11 @@ class RevenueReceiptProvider
         $stmt->execute(['id' => $revenueId]);
         $ym = $stmt->fetchColumn();
         if (!is_string($ym) || $ym === '') {
-            throw new InvalidArgumentException('수입 항목의 대상 월을 확인할 수 없습니다.');
+            throw new InvalidArgumentException('수입을 찾을 수 없습니다.');
+        }
+        $ym = trim($ym);
+        if (preg_match('/^\d{4}-\d{2}$/', $ym) !== 1) {
+            throw new InvalidArgumentException('수입을 찾을 수 없습니다.');
         }
 
         return $ym;
