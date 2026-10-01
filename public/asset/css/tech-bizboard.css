@@ -2050,4 +2050,108 @@ html, body, input, button, select, textarea {
 .draft-receipt-files-actions { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 .draft-attach-items { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
 .draft-attach-items:empty { padding-top: 0; }
+
+/* ── 수입 테이블 위 추가 버튼 영역 ── */
+.rev-table-above {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+/* ── 수입 테이블 신규 열 ── */
+.rev-page #rev-list-table .col-svc,
+.rev-page #rev-list-table .col-billing {
+  width: 1%;
+  white-space: nowrap;
+}
+.rev-free-label {
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+/* ── 수입 등록/편집 모달 ── */
+.rev-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(15 23 42 / .45);
+  padding: 16px;
+}
+.rev-modal-backdrop[hidden] { display: none !important; }
+.rev-modal-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(600px, 100%);
+  max-height: calc(100dvh - 32px);
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-float);
+  overflow: hidden;
+}
+.rev-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--ink-200);
+  flex-shrink: 0;
+}
+.rev-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+.rev-modal-close {
+  flex-shrink: 0;
+}
+.rev-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px;
+}
+.rev-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+.rev-modal-note {
+  grid-column: 1 / -1;
+}
+.rev-modal-grid .field { margin: 0; }
+.rev-modal-grid .input,
+.rev-modal-grid .select-trigger { width: 100%; }
+.rev-modal-receipts {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--ink-200);
+  min-height: 32px;
+}
+.rev-modal-receipts[data-receipts-disabled] {
+  opacity: .5;
+  pointer-events: none;
+}
+.rev-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--ink-200);
+  flex-shrink: 0;
+}
+body.rev-modal-open { overflow: hidden; }
+
+/* 행 클릭 커서 */
+.rev-page #rev-list-table tbody tr.rev-row.is-click { cursor: pointer; }
+.rev-page #rev-list-table tbody tr.rev-row.is-click:hover td { background: var(--brand-subtle); }
+
+@media (max-width: 540px) {
+  .rev-modal-grid { grid-template-columns: 1fr; }
+  .rev-modal-note { grid-column: 1; }
+}
 .draft-attach-additem { margin-top: 8px; color: var(--brand-600); }

@@ -66,14 +66,6 @@ require __DIR__ . '/_header.php';
               id="rev-year-view"
               aria-pressed="<?= $isYearView ? 'true' : 'false' ?>"
             >연간 보기</button>
-            <button
-              class="btn btn-primary btn-sm tooltip tooltip-left"
-              type="button"
-              data-action="add-row"
-              id="rev-add-row"
-              <?= $isYearView ? 'disabled' : '' ?>
-              data-tooltip="달을 고른 뒤 수입을 추가합니다."
-            >+ 추가</button>
           </div>
           <div class="rev-year-kpis" aria-label="연간 요약">
             <article class="rev-year-kpi">
@@ -105,6 +97,15 @@ require __DIR__ . '/_header.php';
               </div>
             </div>
           <p class="hint" id="rev-lock-hint" hidden>전전월 이전은 조회만 가능합니다. 당월과 전월만 수정할 수 있습니다.</p>
+          <div class="rev-table-above">
+            <button
+              class="btn btn-primary btn-sm"
+              type="button"
+              data-action="add-row"
+              id="rev-add-row"
+              <?= $isYearView ? 'disabled' : '' ?>
+            >+ 추가</button>
+          </div>
           <div class="table-wrap rev-table-wrap">
             <table class="table" id="rev-list-table">
               <thead>
@@ -112,6 +113,8 @@ require __DIR__ . '/_header.php';
                   <th class="col-date">입금일</th>
                   <th class="col-project">프로젝트</th>
                   <th class="col-client">거래처</th>
+                  <th class="col-svc">서비스구분</th>
+                  <th class="col-billing">유상/무상</th>
                   <th class="num col-money">공급가</th>
                   <th class="num col-money">부가세</th>
                   <th class="num col-money">합계</th>
@@ -128,6 +131,8 @@ require __DIR__ . '/_header.php';
                   <td class="col-date"></td>
                   <td class="col-project rev-total-label">해당 월 총계</td>
                   <td class="col-client"></td>
+                  <td class="col-svc"></td>
+                  <td class="col-billing"></td>
                   <td class="num col-money" id="rev-sum-supply">0</td>
                   <td class="num col-money" id="rev-sum-vat">0</td>
                   <td class="num col-money" id="rev-sum-amount">0</td>
@@ -192,4 +197,103 @@ require __DIR__ . '/_header.php';
     </div>
   </div>
 </main>
+
+<!-- 수입 등록/편집 모달 -->
+<div class="rev-modal-backdrop" id="rev-modal" hidden aria-modal="true" role="dialog" aria-labelledby="rev-m-title">
+  <div class="rev-modal-box">
+    <div class="rev-modal-head">
+      <h2 class="rev-modal-title" id="rev-m-title">수입 등록</h2>
+      <button class="rev-modal-close btn btn-ghost btn-icon" type="button" data-action="close-rev-modal" aria-label="닫기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="rev-modal-body">
+      <div class="rev-modal-grid">
+        <div class="field">
+          <label class="label" for="rev-m-received_date">입금일 <span class="req">*</span></label>
+          <div class="input-wrap">
+            <svg class="icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <input class="input has-icon-left" type="text" id="rev-m-received_date" autocomplete="off" placeholder="YYYY-MM-DD" readonly />
+          </div>
+        </div>
+        <div class="field">
+          <label class="label" for="rev-m-project_name">프로젝트 <span class="req">*</span></label>
+          <input class="input" type="text" id="rev-m-project_name" placeholder="프로젝트명" />
+        </div>
+        <div class="field">
+          <label class="label" for="rev-m-client_name">거래처</label>
+          <input class="input" type="text" id="rev-m-client_name" placeholder="거래처명" />
+        </div>
+        <div class="field">
+          <label class="label" for="rev-m-service_category-trigger">서비스구분</label>
+          <div class="select" data-select id="rev-m-service_category-wrap">
+            <button type="button" class="select-trigger" id="rev-m-service_category-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="select-value">선택</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <input type="hidden" id="rev-m-service_category" value="" />
+            <ul class="select-menu" role="listbox">
+              <li class="select-option" data-value="">선택</li>
+              <li class="select-option" data-value="솔루션 서비스">솔루션 서비스</li>
+              <li class="select-option" data-value="컨설팅">컨설팅</li>
+              <li class="select-option" data-value="기타">기타</li>
+            </ul>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label" for="rev-m-billing_type-trigger">유상/무상</label>
+          <div class="select" data-select id="rev-m-billing_type-wrap">
+            <button type="button" class="select-trigger" id="rev-m-billing_type-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="select-value">유상</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <input type="hidden" id="rev-m-billing_type" value="PAID" />
+            <ul class="select-menu" role="listbox">
+              <li class="select-option is-selected" data-value="PAID">유상</li>
+              <li class="select-option" data-value="FREE">무상</li>
+            </ul>
+          </div>
+        </div>
+        <div class="field" id="rev-m-supply-field">
+          <label class="label" for="rev-m-supply_krw">공급가 <span class="req">*</span></label>
+          <input class="input num" type="text" id="rev-m-supply_krw" inputmode="numeric" placeholder="0" />
+        </div>
+        <div class="field" id="rev-m-list-field" hidden>
+          <label class="label" for="rev-m-list_value_krw">정상가</label>
+          <input class="input num" type="text" id="rev-m-list_value_krw" inputmode="numeric" placeholder="0" />
+        </div>
+        <div class="field">
+          <label class="label" for="rev-m-assignee">담당 <span class="req">*</span></label>
+          <input class="input" type="text" id="rev-m-assignee" placeholder="담당자" />
+        </div>
+        <div class="field">
+          <label class="label" for="rev-m-status-trigger">상태</label>
+          <div class="select" data-select id="rev-m-status-wrap">
+            <button type="button" class="select-trigger" id="rev-m-status-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="select-value">완료</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <input type="hidden" id="rev-m-status" value="COMPLETED" />
+            <ul class="select-menu" role="listbox">
+              <li class="select-option is-selected" data-value="COMPLETED">완료</li>
+              <li class="select-option" data-value="PENDING">미확인</li>
+            </ul>
+          </div>
+        </div>
+        <div class="field rev-modal-note">
+          <label class="label" for="rev-m-note">메모</label>
+          <input class="input" type="text" id="rev-m-note" placeholder="메모" />
+        </div>
+      </div>
+      <!-- 증빙 섹션: 나중 태스크에서 구현 -->
+      <div class="rev-modal-receipts" id="rev-m-receipts">
+        <!-- placeholder: 증빙 첨부(드롭존·목록)는 다음 태스크에서 구현 -->
+      </div>
+    </div>
+    <div class="rev-modal-foot">
+      <button class="btn btn-outline" type="button" data-action="close-rev-modal">취소</button>
+      <button class="btn btn-primary" type="button" id="rev-m-save">저장</button>
+    </div>
+  </div>
+</div>
 <?php require __DIR__ . '/_footer.php'; ?>

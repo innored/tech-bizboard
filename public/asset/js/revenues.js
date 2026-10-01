@@ -25,20 +25,21 @@
   var saveHint = document.getElementById('rev-save-hint');
   var lockHint = document.getElementById('rev-lock-hint');
   var monthLock = document.getElementById('rev-month-lock');
+  var revModal = document.getElementById('rev-modal');
   var tplLoaded = false;
 
   var CAL_ICON =
     '<svg class="icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
-  var SAVE_ICON =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M20 6 9 17l-5-5"/></svg>';
   var TRASH_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
+  var SAVE_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M20 6 9 17l-5-5"/></svg>';
   var LOCK_ICON =
     '<svg class="rev-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -235,18 +236,6 @@
     );
   }
 
-  function dateHtml(field, value, kind) {
-    var attr = kind === 'month' ? 'data-datepicker-month' : 'data-datepicker';
-    var ph = kind === 'month' ? '연-월 선택' : 'YYYY-MM-DD';
-    return (
-      '<div class="input-wrap">' +
-        CAL_ICON +
-        '<input class="input has-icon-left" type="text" size="1" data-field="' + escapeAttr(field) + '" ' + attr +
-          ' autocomplete="off" placeholder="' + ph + '" readonly value="' + escapeAttr(value || '') + '" />' +
-      '</div>'
-    );
-  }
-
   function deleteBtn(action) {
     return '<button class="btn btn-outline btn-sm" type="button" data-action="' + escapeAttr(action) + '" aria-label="삭제">' +
       TRASH_ICON + '</button>';
@@ -286,9 +275,9 @@
     var amount = 0;
     if (!listBody) return { supply: 0, vat: 0, amount: 0 };
     listBody.querySelectorAll('tr.rev-row').forEach(function (tr) {
-      supply += toInt(fieldValue(tr, 'supply_krw'));
-      vat += toInt(fieldValue(tr, 'vat_krw'));
-      amount += toInt(fieldValue(tr, 'amount_krw'));
+      supply += toInt(tr.getAttribute('data-supply') || '');
+      vat += toInt(tr.getAttribute('data-vat') || '');
+      amount += toInt(tr.getAttribute('data-amount') || '');
     });
     return { supply: supply, vat: vat, amount: amount };
   }
@@ -300,7 +289,7 @@
 
   function updateListSummary() {
     updateCount(listBody, listCount, listEmpty);
-    syncEmptyRow(listBody, 11, '수입이 없습니다.', listEmpty);
+    syncEmptyRow(listBody, 13, '수입이 없습니다.', listEmpty);
     var sums = listMoneySums();
     setText('rev-list-total', fmt(sums.amount));
     setText('rev-sum-supply', fmt(sums.supply));
@@ -342,33 +331,76 @@
     });
   }
 
-  function listRowHtml(row, locked) {
+  /* ── 서비스구분 레이블 ── */
+  function svcLabel(val) {
+    if (!val) return '';
+    return val;
+  }
+
+  /* ── 유상/무상 레이블 ── */
+  function billingLabel(val) {
+    if (val === 'FREE') return '무상';
+    return '유상';
+  }
+
+  /* ── 읽기전용 수입 목록 행 ── */
+  function listRowHtml(row) {
     var id = row.id ? String(row.id) : '';
     var repeating = !!row.revenue_template_id;
-    var status = row.status === 'PENDING' ? 'PENDING' : 'COMPLETED';
-    var dis = locked ? ' disabled' : '';
-    var dateCell = locked
-      ? '<span class="rev-lock-text">' + escapeHtml(row.received_date || '') + '</span>'
-      : dateHtml('received_date', row.received_date || '', 'day');
-    var actions = locked ? '' : saveBtn('save-row') + deleteBtn('delete-row');
+    var billing = row.billing_type === 'FREE' ? 'FREE' : 'PAID';
+    var supplyKrw = Number(row.supply_krw || 0);
+    var vatKrw = Number(row.vat_krw || 0);
+    var amountKrw = Number(row.amount_krw || 0);
+    var listKrw = Number(row.list_value_krw || 0);
+    var moneyDisplay = billing === 'FREE'
+      ? '<span class="rev-free-label">무상(정상가 ' + fmt(listKrw) + ')</span>'
+      : fmt(amountKrw);
     return (
-      '<tr class="rev-row' + (locked ? ' is-locked' : '') + '" data-id="' + escapeAttr(id) + '"' + (id ? '' : ' data-draft="1"') +
+      '<tr class="rev-row is-click" data-id="' + escapeAttr(id) + '"' + (id ? '' : ' data-draft="1"') +
+        ' data-supply="' + escapeAttr(String(supplyKrw)) + '"' +
+        ' data-vat="' + escapeAttr(String(vatKrw)) + '"' +
+        ' data-amount="' + escapeAttr(String(amountKrw)) + '"' +
         ' data-created-by="' + escapeAttr(row.created_by || '') + '">' +
-        '<td class="col-date">' + dateCell + '</td>' +
-        '<td class="col-project"><input class="input" type="text" size="1" data-field="project_name" value="' + escapeAttr(row.project_name || '') + '" placeholder="프로젝트"' + dis + ' /></td>' +
-        '<td class="col-client"><input class="input" type="text" size="1" data-field="client_name" value="' + escapeAttr(row.client_name || '') + '" placeholder="선택"' + dis + ' /></td>' +
-        '<td class="num col-money"><input class="input num" type="text" size="1" inputmode="numeric" data-field="supply_krw" data-money="supply" value="' + escapeAttr(row.supply_krw == null || row.supply_krw === '' ? '' : fmt(row.supply_krw)) + '"' + dis + ' /></td>' +
-        '<td class="num col-money"><input class="input num" type="text" size="1" inputmode="numeric" data-field="vat_krw" data-money="vat" value="' + escapeAttr(row.vat_krw == null || row.vat_krw === '' ? '' : fmt(row.vat_krw)) + '"' + dis + ' /></td>' +
-        '<td class="num col-money"><input class="input num" type="text" size="1" inputmode="numeric" data-field="amount_krw" data-money="amount" value="' + escapeAttr(row.amount_krw == null || row.amount_krw === '' ? '' : fmt(row.amount_krw)) + '"' + dis + ' /></td>' +
-        '<td class="col-assignee"><input class="input" type="text" size="1" data-field="assignee" value="' + escapeAttr(row.assignee || '') + '" placeholder="담당"' + dis + ' /></td>' +
-        '<td class="col-author"><span class="rev-author">' + escapeHtml(row.created_by || '') + '</span></td>' +
-        '<td class="rev-kind col-kind">' + (repeating ? '<span class="badge badge-brand">반복</span>' : '<span class="badge badge-muted">단건</span>') +
-          '<input type="hidden" data-field="status" value="' + escapeAttr(status) + '" />' +
+        '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
+        '<td class="col-project">' + escapeHtml(row.project_name || '') + '</td>' +
+        '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
+        '<td class="col-svc">' + escapeHtml(svcLabel(row.service_category || '')) + '</td>' +
+        '<td class="col-billing">' +
+          (billing === 'FREE'
+            ? '<span class="badge badge-muted">무상</span>'
+            : '<span class="badge badge-brand">유상</span>') +
         '</td>' +
-        '<td class="col-note"><input class="input" type="text" size="1" data-field="note" value="' + escapeAttr(row.note || '') + '"' + dis + ' /></td>' +
-        '<td class="col-actions">' + actions + '</td>' +
+        '<td class="num col-money">' + (billing === 'FREE' ? '' : fmt(supplyKrw)) + '</td>' +
+        '<td class="num col-money">' + (billing === 'FREE' ? '' : fmt(vatKrw)) + '</td>' +
+        '<td class="num col-money">' + moneyDisplay + '</td>' +
+        '<td class="col-assignee">' + escapeHtml(row.assignee || '') + '</td>' +
+        '<td class="col-author"><span class="rev-author">' + escapeHtml(row.created_by || '') + '</span></td>' +
+        '<td class="rev-kind col-kind">' + (repeating ? '<span class="badge badge-brand">반복</span>' : '<span class="badge badge-muted">단건</span>') + '</td>' +
+        '<td class="col-note">' + escapeHtml(row.note || '') + '</td>' +
+        '<td class="col-actions">' + deleteBtn('delete-row') + '</td>' +
       '</tr>'
     );
+  }
+
+  /* ── 기존 행의 표시 데이터를 row 객체로 추출 ── */
+  function rowDataFromTr(tr) {
+    return {
+      id: tr.getAttribute('data-id') || '',
+      received_date: tr.querySelector('.col-date') ? tr.querySelector('.col-date').textContent.trim() : '',
+      project_name: tr.querySelector('.col-project') ? tr.querySelector('.col-project').textContent.trim() : '',
+      client_name: tr.querySelector('.col-client') ? tr.querySelector('.col-client').textContent.trim() : '',
+      service_category: tr.querySelector('.col-svc') ? tr.querySelector('.col-svc').textContent.trim() : '',
+      billing_type: tr.querySelector('.col-billing .badge-muted') ? 'FREE' : 'PAID',
+      supply_krw: toInt(tr.getAttribute('data-supply') || ''),
+      vat_krw: toInt(tr.getAttribute('data-vat') || ''),
+      amount_krw: toInt(tr.getAttribute('data-amount') || ''),
+      list_value_krw: toInt(tr.getAttribute('data-list-value') || ''),
+      assignee: tr.querySelector('.col-assignee') ? tr.querySelector('.col-assignee').textContent.trim() : '',
+      status: 'COMPLETED',
+      note: tr.querySelector('.col-note') ? tr.querySelector('.col-note').textContent.trim() : '',
+      created_by: tr.getAttribute('data-created-by') || '',
+      revenue_template_id: null
+    };
   }
 
   function tplRowHtml(row) {
@@ -522,8 +554,7 @@
 
   function renderMonthTable(rows) {
     if (!listBody) return;
-    listBody.innerHTML = (rows || []).map(function (row) { return listRowHtml(row, isViewLocked()); }).join('');
-    bootWidgets(listBody);
+    listBody.innerHTML = (rows || []).map(function (row) { return listRowHtml(row); }).join('');
     updateListSummary();
   }
 
@@ -547,96 +578,6 @@
     return el.value;
   }
 
-  function setField(tr, name, value) {
-    var el = tr.querySelector('[data-field="' + name + '"]');
-    if (el) el.value = value;
-  }
-
-  function applyMoney(tr, field) {
-    var supply = toInt(fieldValue(tr, 'supply_krw'));
-    var vat = toInt(fieldValue(tr, 'vat_krw'));
-    var amount = toInt(fieldValue(tr, 'amount_krw'));
-    if (field === 'supply') {
-      vat = Math.round(supply * 0.1);
-      amount = supply + vat;
-    } else if (field === 'vat') {
-      amount = supply + vat;
-    }
-    setField(tr, 'supply_krw', fmt(supply));
-    setField(tr, 'vat_krw', fmt(vat));
-    setField(tr, 'amount_krw', fmt(amount));
-  }
-
-  function listPayload(tr, moneyField) {
-    return {
-      id: tr.getAttribute('data-id') || '',
-      project_name: fieldValue(tr, 'project_name').trim(),
-      client_name: fieldValue(tr, 'client_name').trim(),
-      received_date: fieldValue(tr, 'received_date').trim(),
-      assignee: fieldValue(tr, 'assignee').trim(),
-      note: fieldValue(tr, 'note').trim(),
-      status: fieldValue(tr, 'status') || 'COMPLETED',
-      supply_krw: toInt(fieldValue(tr, 'supply_krw')),
-      vat_krw: toInt(fieldValue(tr, 'vat_krw')),
-      amount_krw: toInt(fieldValue(tr, 'amount_krw')),
-      money_field: moneyField || ''
-    };
-  }
-
-  function listReady(tr) {
-    var amountEl = tr.querySelector('[data-field="amount_krw"]');
-    var amountFilled = amountEl && String(amountEl.value).trim() !== '';
-    return fieldValue(tr, 'project_name').trim() &&
-      fieldValue(tr, 'received_date').trim() &&
-      fieldValue(tr, 'assignee').trim() &&
-      amountFilled;
-  }
-
-  function markInvalid(tr, on) {
-    tr.classList.toggle('is-invalid', !!on);
-  }
-
-  function applySavedId(tr, row) {
-    if (!row || !row.id) return;
-    tr.removeAttribute('data-draft');
-    tr.setAttribute('data-id', String(row.id));
-    if (row.created_by) tr.setAttribute('data-created-by', row.created_by);
-    var author = tr.querySelector('.rev-author');
-    if (author && row.created_by) author.textContent = row.created_by;
-  }
-
-  function saveListRow(tr, moneyField) {
-    if (isViewLocked()) {
-      toast('수정할 수 없습니다', '전전월 이전은 볼 수만 있습니다.', 'danger');
-      return;
-    }
-    if (tr._saving) return;
-    if (!listReady(tr)) {
-      markInvalid(tr, true);
-      toast('저장 안 됨', '프로젝트, 입금일, 담당, 합계를 적어 주세요.', 'danger');
-      return;
-    }
-    markInvalid(tr, false);
-    var payload = listPayload(tr, moneyField);
-    var isNew = !payload.id;
-    payload.action = isNew ? 'create' : 'update';
-    tr._saving = true;
-    post(apiUrl, payload)
-      .then(function (data) {
-        applySavedId(tr, data.row);
-        updateListSummary();
-        refreshYearIndex();
-        toast('저장됨', '수입을 저장했습니다.', 'success');
-      })
-      .catch(function (err) {
-        toast('저장 실패', err.message, 'danger');
-        markInvalid(tr, true);
-      })
-      .finally(function () {
-        tr._saving = false;
-      });
-  }
-
   function tplReady(tr) {
     return fieldValue(tr, 'project_name').trim() && fieldValue(tr, 'assignee').trim();
   }
@@ -656,6 +597,10 @@
     };
   }
 
+  function markInvalid(tr, on) {
+    tr.classList.toggle('is-invalid', !!on);
+  }
+
   function saveTplRow(tr) {
     if (tr._saving) return;
     if (!tplReady(tr)) {
@@ -672,7 +617,13 @@
     tr._saving = true;
     post(tplApi, payload)
       .then(function (data) {
-        applySavedId(tr, data.row);
+        if (!payload.id && data.row && data.row.id) {
+          tr.removeAttribute('data-draft');
+          tr.setAttribute('data-id', String(data.row.id));
+          if (data.row.created_by) tr.setAttribute('data-created-by', data.row.created_by);
+          var author = tr.querySelector('.rev-author');
+          if (author && data.row.created_by) author.textContent = data.row.created_by;
+        }
         updateTplSummary();
         toast('저장됨', '반복 설정을 저장했습니다.', 'success');
       })
@@ -683,37 +634,6 @@
       .finally(function () {
         tr._saving = false;
       });
-  }
-
-  function addListRow() {
-    if (isYearView()) {
-      toast('달을 고르세요', '연간 보기에서는 줄을 추가할 수 없습니다.', 'danger');
-      return;
-    }
-    if (isViewLocked()) {
-      toast('수정할 수 없습니다', '전전월 이전은 볼 수만 있습니다.', 'danger');
-      return;
-    }
-    if (!listBody) return;
-    var today = new Date();
-    var pad = function (n) { return String(n).padStart(2, '0'); };
-    var date = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
-    var m = currentMonth();
-    if (m) date = currentYear() + '-' + m + '-01';
-    listBody.insertAdjacentHTML('afterbegin', listRowHtml({
-      received_date: date,
-      status: 'COMPLETED',
-      supply_krw: '',
-      vat_krw: '',
-      amount_krw: ''
-    }));
-    var first = listBody.querySelector('tr');
-    if (first) bootWidgets(first);
-    updateListSummary();
-    if (first) {
-      var name = first.querySelector('[data-field="project_name"]');
-      if (name) name.focus();
-    }
   }
 
   function addTplRow() {
@@ -734,6 +654,229 @@
     }
   }
 
+  /* ════════════════════════════════════════
+     모달 열기 / 닫기 / 저장
+  ════════════════════════════════════════ */
+
+  function modalEl(id) {
+    return document.getElementById(id);
+  }
+
+  function setSelectValue(wrapId, hiddenId, value, labelText) {
+    var hidden = modalEl(hiddenId);
+    if (hidden) hidden.value = value;
+    var wrap = modalEl(wrapId);
+    if (!wrap) return;
+    var valSpan = wrap.querySelector('.select-value');
+    if (valSpan) valSpan.textContent = labelText;
+    wrap.querySelectorAll('.select-option').forEach(function (opt) {
+      opt.classList.toggle('is-selected', opt.getAttribute('data-value') === value);
+    });
+  }
+
+  function applyBillingVisibility(billing) {
+    var supplyField = modalEl('rev-m-supply-field');
+    var listField = modalEl('rev-m-list-field');
+    if (billing === 'FREE') {
+      if (supplyField) supplyField.hidden = true;
+      if (listField) listField.hidden = false;
+    } else {
+      if (supplyField) supplyField.hidden = false;
+      if (listField) listField.hidden = true;
+    }
+  }
+
+  function openRevModal(rowData) {
+    if (!revModal) return;
+
+    var titleEl = modalEl('rev-m-title');
+    var isNew = !rowData || !rowData.id;
+    if (titleEl) titleEl.textContent = isNew ? '수입 등록' : '수입 편집';
+
+    /* 모달 dataset에 현재 편집 id 저장 */
+    revModal.dataset.editId = isNew ? '' : String(rowData.id);
+
+    /* 필드 채우기 */
+    var received_date = modalEl('rev-m-received_date');
+    var project_name = modalEl('rev-m-project_name');
+    var client_name = modalEl('rev-m-client_name');
+    var supply_krw = modalEl('rev-m-supply_krw');
+    var list_value_krw = modalEl('rev-m-list_value_krw');
+    var assignee = modalEl('rev-m-assignee');
+    var note = modalEl('rev-m-note');
+
+    var billing = (rowData && rowData.billing_type) ? rowData.billing_type : 'PAID';
+    var status = (rowData && rowData.status) ? rowData.status : 'COMPLETED';
+    var svcCat = (rowData && rowData.service_category) ? rowData.service_category : '';
+
+    if (received_date) received_date.value = isNew ? '' : (rowData.received_date || '');
+    if (project_name) project_name.value = isNew ? '' : (rowData.project_name || '');
+    if (client_name) client_name.value = isNew ? '' : (rowData.client_name || '');
+    if (supply_krw) supply_krw.value = isNew ? '' : (rowData.supply_krw ? fmt(rowData.supply_krw) : '');
+    if (list_value_krw) list_value_krw.value = isNew ? '' : (rowData.list_value_krw ? fmt(rowData.list_value_krw) : '');
+    if (assignee) assignee.value = isNew ? '' : (rowData.assignee || '');
+    if (note) note.value = isNew ? '' : (rowData.note || '');
+
+    /* 서비스구분 */
+    var svcLabel = svcCat || '선택';
+    setSelectValue('rev-m-service_category-wrap', 'rev-m-service_category', svcCat, svcLabel);
+
+    /* 유상/무상 */
+    setSelectValue('rev-m-billing_type-wrap', 'rev-m-billing_type', billing, billing === 'FREE' ? '무상' : '유상');
+
+    /* 상태 */
+    setSelectValue('rev-m-status-wrap', 'rev-m-status', status, status === 'PENDING' ? '미확인' : '완료');
+
+    /* 공급가/정상가 가시성 */
+    applyBillingVisibility(billing);
+
+    /* 증빙 섹션: 신규일 때 비활성 안내 */
+    var receipts = modalEl('rev-m-receipts');
+    if (receipts) {
+      if (isNew) {
+        receipts.setAttribute('data-receipts-disabled', '1');
+        receipts.title = '저장 후 첨부 가능합니다.';
+      } else {
+        receipts.removeAttribute('data-receipts-disabled');
+        receipts.title = '';
+      }
+    }
+
+    /* 모달 표시 */
+    revModal.hidden = false;
+    document.body.classList.add('rev-modal-open');
+
+    /* datepicker 초기화 */
+    if (window.TechBizBoardDatepicker && received_date) {
+      window.TechBizBoardDatepicker.day(received_date);
+    }
+
+    /* 디자인 시스템 select 초기화 */
+    if (window.DesignSystem && typeof window.DesignSystem.initSelects === 'function') {
+      window.DesignSystem.initSelects(revModal);
+    }
+
+    /* 포커스 */
+    if (project_name) project_name.focus();
+  }
+
+  function closeRevModal() {
+    if (!revModal) return;
+    revModal.hidden = true;
+    document.body.classList.remove('rev-modal-open');
+  }
+
+  function upsertListRow(row) {
+    if (!listBody) return;
+    var existing = listBody.querySelector('tr.rev-row[data-id="' + escapeAttr(String(row.id)) + '"]');
+    var html = listRowHtml(row);
+    if (existing) {
+      var tmp = document.createElement('tbody');
+      tmp.innerHTML = html;
+      var newTr = tmp.querySelector('tr');
+      if (newTr) existing.replaceWith(newTr);
+    } else {
+      listBody.insertAdjacentHTML('afterbegin', html);
+    }
+    updateListSummary();
+    refreshYearIndex();
+  }
+
+  function saveRevModal() {
+    if (!revModal) return;
+    var editId = revModal.dataset.editId || '';
+    var isNew = !editId;
+
+    var received_date = (modalEl('rev-m-received_date') || {}).value || '';
+    var project_name = ((modalEl('rev-m-project_name') || {}).value || '').trim();
+    var client_name = ((modalEl('rev-m-client_name') || {}).value || '').trim();
+    var service_category = (modalEl('rev-m-service_category') || {}).value || '';
+    var billing_type = (modalEl('rev-m-billing_type') || {}).value || 'PAID';
+    var supply_krw = toInt((modalEl('rev-m-supply_krw') || {}).value || '');
+    var list_value_krw = toInt((modalEl('rev-m-list_value_krw') || {}).value || '');
+    var assignee = ((modalEl('rev-m-assignee') || {}).value || '').trim();
+    var status = (modalEl('rev-m-status') || {}).value || 'COMPLETED';
+    var note = ((modalEl('rev-m-note') || {}).value || '').trim();
+
+    if (!project_name || !received_date || !assignee) {
+      toast('저장 안 됨', '프로젝트, 입금일, 담당을 입력해 주세요.', 'danger');
+      return;
+    }
+    if (billing_type !== 'FREE' && supply_krw === 0) {
+      toast('저장 안 됨', '공급가를 입력해 주세요.', 'danger');
+      return;
+    }
+
+    var vat_krw = billing_type === 'FREE' ? 0 : Math.round(supply_krw * 0.1);
+    var amount_krw = billing_type === 'FREE' ? 0 : (supply_krw + vat_krw);
+
+    var payload = {
+      action: isNew ? 'create' : 'update',
+      id: editId,
+      received_date: received_date,
+      project_name: project_name,
+      client_name: client_name,
+      service_category: service_category,
+      billing_type: billing_type,
+      supply_krw: supply_krw,
+      list_value_krw: list_value_krw,
+      vat_krw: vat_krw,
+      amount_krw: amount_krw,
+      assignee: assignee,
+      status: status,
+      note: note
+    };
+
+    var saveBtn = modalEl('rev-m-save');
+    if (saveBtn) saveBtn.disabled = true;
+
+    post(apiUrl, payload)
+      .then(function (data) {
+        var savedRow = data.row || {};
+        /* 새로 저장된 row에 로컬 필드 보강(API가 전부 돌려주지 않을 수 있음) */
+        if (!savedRow.received_date) savedRow.received_date = received_date;
+        if (!savedRow.project_name) savedRow.project_name = project_name;
+        if (!savedRow.client_name) savedRow.client_name = client_name;
+        savedRow.service_category = savedRow.service_category || service_category;
+        savedRow.billing_type = savedRow.billing_type || billing_type;
+        if (savedRow.supply_krw == null) savedRow.supply_krw = supply_krw;
+        if (savedRow.list_value_krw == null) savedRow.list_value_krw = list_value_krw;
+        if (savedRow.vat_krw == null) savedRow.vat_krw = vat_krw;
+        if (savedRow.amount_krw == null) savedRow.amount_krw = amount_krw;
+        if (!savedRow.assignee) savedRow.assignee = assignee;
+        savedRow.status = savedRow.status || status;
+        savedRow.note = savedRow.note != null ? savedRow.note : note;
+
+        upsertListRow(savedRow);
+
+        if (isNew && savedRow.id) {
+          /* 신규: 모달을 편집 모드로 전환(증빙 섹션 활성화) */
+          revModal.dataset.editId = String(savedRow.id);
+          var titleEl = modalEl('rev-m-title');
+          if (titleEl) titleEl.textContent = '수입 편집';
+          var receipts = modalEl('rev-m-receipts');
+          if (receipts) {
+            receipts.removeAttribute('data-receipts-disabled');
+            receipts.title = '';
+          }
+          toast('저장됨', '수입을 저장했습니다. 증빙을 첨부할 수 있습니다.', 'success');
+        } else {
+          toast('저장됨', '수입을 저장했습니다.', 'success');
+          closeRevModal();
+        }
+      })
+      .catch(function (err) {
+        toast('저장 실패', err.message, 'danger');
+      })
+      .finally(function () {
+        if (saveBtn) saveBtn.disabled = false;
+      });
+  }
+
+  /* ════════════════════════════════════════
+     이벤트 위임
+  ════════════════════════════════════════ */
+
   root.addEventListener('click', function (e) {
     var gotoMonth = e.target.closest('[data-goto-month]');
     if (gotoMonth) {
@@ -751,18 +894,20 @@
     }
     var add = e.target.closest('[data-action="add-row"]');
     if (add) {
-      addListRow();
+      if (isYearView()) {
+        toast('달을 고르세요', '연간 보기에서는 줄을 추가할 수 없습니다.', 'danger');
+        return;
+      }
+      if (isViewLocked()) {
+        toast('수정할 수 없습니다', '전전월 이전은 볼 수만 있습니다.', 'danger');
+        return;
+      }
+      openRevModal(null);
       return;
     }
     var addTpl = e.target.closest('[data-action="add-tpl"]');
     if (addTpl) {
       addTplRow();
-      return;
-    }
-    var saveList = e.target.closest('[data-action="save-row"]');
-    if (saveList) {
-      var listRow = saveList.closest('tr.rev-row');
-      if (listRow) saveListRow(listRow, '');
       return;
     }
     var saveTpl = e.target.closest('[data-action="save-tpl"]');
@@ -812,20 +957,44 @@
           updateTplSummary();
         })
         .catch(function (err) { toast('삭제 실패', err.message, 'danger'); });
+      return;
+    }
+    /* 행 클릭 → 모달 열기 */
+    var revRowClick = e.target.closest('tr.rev-row.is-click');
+    if (revRowClick && listBody && listBody.contains(revRowClick)) {
+      /* 삭제 버튼 영역 클릭 시는 모달 열지 않음 */
+      if (e.target.closest('[data-action="delete-row"]')) return;
+      if (isViewLocked()) return;
+      openRevModal(rowDataFromTr(revRowClick));
+      return;
+    }
+  });
+
+  /* 모달 버튼 이벤트 */
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-action="close-rev-modal"]')) {
+      closeRevModal();
+      return;
+    }
+    if (e.target.closest('#rev-m-save')) {
+      saveRevModal();
+      return;
+    }
+    /* 백드롭 클릭 닫기 */
+    if (revModal && !revModal.hidden && e.target === revModal) {
+      closeRevModal();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && revModal && !revModal.hidden) {
+      closeRevModal();
     }
   });
 
   root.addEventListener('focusout', function (e) {
     var tr = e.target.closest('tr.rev-row');
     if (!tr) return;
-    if (listBody && listBody.contains(tr)) {
-      var money = e.target.getAttribute('data-money');
-      if (money) {
-        applyMoney(tr, money);
-        updateListSummary();
-      }
-      return;
-    }
     if (tplBody && tplBody.contains(tr) && e.target.getAttribute('data-field') === 'supply_krw') {
       e.target.value = fmt(toInt(e.target.value));
       updateTplSummary();
@@ -838,13 +1007,6 @@
     if (!tr) return;
     if (e.target.tagName === 'TEXTAREA') return;
     if (e.target.hasAttribute('data-datepicker') || e.target.hasAttribute('data-datepicker-month') || e.target.hasAttribute('data-datepicker-month-range')) return;
-    var money = e.target.getAttribute('data-money');
-    if (money && listBody && listBody.contains(tr)) {
-      e.preventDefault();
-      applyMoney(tr, money);
-      updateListSummary();
-      return;
-    }
     if (tplBody && tplBody.contains(tr) && e.target.getAttribute('data-field') === 'supply_krw') {
       e.preventDefault();
       e.target.value = fmt(toInt(e.target.value));
