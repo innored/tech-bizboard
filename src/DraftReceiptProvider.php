@@ -141,6 +141,29 @@ class DraftReceiptProvider
         $this->pdo->prepare('DELETE FROM tb_draft_receipts WHERE id = :id')->execute(['id' => $id]);
     }
 
+    /**
+     * 템플릿+월의 모든 첨부 DB행을 삭제한다(업로더 무관 — "초기화" 전체 삭제용).
+     * 실제 파일 unlink 는 트랜잭션 커밋 후 호출측에서 하도록, 삭제된 파일들의 절대 경로를 반환한다.
+     *
+     * @return list<string>
+     */
+    public function deleteAllFor(int $templateId, string $yearMonth): array
+    {
+        $rows = $this->listFor($templateId, $yearMonth);
+        if ($rows === []) {
+            return [];
+        }
+        $paths = [];
+        foreach ($rows as $row) {
+            $paths[] = $this->absPath($row);
+        }
+        $this->pdo->prepare(
+            'DELETE FROM tb_draft_receipts WHERE expense_template_id = :t AND target_year_month = :ym'
+        )->execute(['t' => $templateId, 'ym' => $yearMonth]);
+
+        return $paths;
+    }
+
     /** AI 분석 후 추출 내용에 맞춰 표시 이름을 바꾼다(확장자는 저장본 유지, 중복 자동번호). */
     public function rename(int $id, string $display): array
     {

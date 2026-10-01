@@ -1139,6 +1139,34 @@
     refreshMonthSummary();
   }
 
+  // 자동 업로드 파이프라인용 임시저장 — 금액 빈 행은 collectItems가 이미 제외하므로
+  // firstMissingAmountRow 블로킹 없이 "성공분만" 저장한다.
+  function autoSaveDraft() {
+    if (isComposeLocked()) return null;
+    var templateId = parseInt(root.getAttribute('data-selected') || '0', 10);
+    if (!(templateId > 0)) return null;
+    var items = collectItems();
+    if (!items.length) return null;
+    var id = parseInt(compose.getAttribute('data-draft-id') || '0', 10);
+    if (id > 0) {
+      bodyDirty = false;
+      return post({ action: 'items', id: id, items: items, draft_title: currentTitle(), draft_body: currentBody() });
+    }
+    return post({ action: 'create', template_id: templateId, month: month, items: items, draft_body: currentBody(), draft_title: currentTitle() });
+  }
+
+  // 내용은 있으나 금액을 못 읽어 저장에서 제외될 행 수(경고 표시용).
+  function countAmountlessContentRows() {
+    syncItemHost();
+    if (!itemRows) return 0;
+    var n = 0;
+    itemRows.querySelectorAll('.draft-item-row').forEach(function (tr) {
+      var amount = parseMoney((tr.querySelector('[data-field="amount"]') || {}).value);
+      if (!(amount > 0) && rowHasContent(tr)) n += 1;
+    });
+    return n;
+  }
+
   root.addEventListener('click', function (e) {
     var pick = e.target.closest('[data-action="pick"]');
     if (pick) {
@@ -1154,10 +1182,23 @@
     var clearItems = e.target.closest('[data-action="clear-items"]');
     if (clearItems) {
       if (isComposeLocked()) { toastLocked(); return; }
-      if (collectItems().length && !window.confirm('결제 항목을 모두 지우고 초기화할까요?')) return;
-      fillItems([]);
-      schedulePreview();
-      toast('결제 항목을 초기화했습니다.', '다시 입력하거나 첨부파일을 AI로 분석하세요.');
+      var resetTplId = parseInt(root.getAttribute('data-selected') || '0', 10);
+      if (!(resetTplId > 0)) return;
+      if (!window.confirm('이 템플릿의 ' + month + ' 기안과 첨부 파일을 모두 삭제하고 미작성으로 되돌립니다.\n되돌릴 수 없습니다. 계속할까요?')) return;
+      clearItems.disabled = true;
+      post({ action: 'reset', template_id: resetTplId, month: month })
+        .then(function () {
+          // 클라이언트 상태에서 이 템플릿 기안 제거 → 미작성으로 다시 렌더.
+          for (var i = drafts.length - 1; i >= 0; i--) {
+            if (parseInt(drafts[i].expense_template_id, 10) === resetTplId) drafts.splice(i, 1);
+          }
+          setListBadge(resetTplId, null);
+          renderPane(findTemplate(resetTplId));
+          refreshMonthSummary();
+          toast('초기화했습니다.', '기안과 첨부 파일을 삭제하고 미작성으로 되돌렸습니다.');
+        })
+        .catch(function (err) { toast('초기화하지 못했습니다.', err.message || '', 'danger'); })
+        .then(function () { clearItems.disabled = false; });
       return;
     }
     var foldAll = e.target.closest('[data-action="collapse-items"]');
@@ -1606,10 +1647,10 @@
   /** 현재 (템플릿·월)의 서버 보관 첨부 파일 목록을 불러온다. 상태와 무관하게 노출(완료 후에도 다운로드 가능). */
   function loadReceiptFiles() {
     var container = document.getElementById('draft-receipt-files');
-    if (!container) return;
+    if (!container) return Promise.resolve();
     var id = parseInt(root.getAttribute('data-selected') || '0', 10);
-    if (!(id > 0)) { container.hidden = true; container.innerHTML = ''; return; }
-    fetch('api/receipt_file?action=list&template_id=' + id + '&month=' + encodeURIComponent(month), { credentials: 'same-origin' })
+    if (!(id > 0)) { container.hidden = true; container.innerHTML = ''; return Promise.resolve(); }
+    return fetch('api/receipt_file?action=list&template_id=' + id + '&month=' + encodeURIComponent(month), { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) { renderReceiptFiles(container, (data && data.files) || []); })
       .catch(function () { /* 목록 조회 실패는 조용히 무시 */ });
@@ -1787,8 +1828,8 @@
   function loadComposeGroups(items) {
     var id = parseInt(root.getAttribute('data-selected') || '0', 10);
     var done = function (files) { renderAttachmentGroups(items, files); schedulePreview(); };
-    if (!(id > 0)) { done([]); return; }
-    fetch('api/receipt_file?action=list&template_id=' + id + '&month=' + encodeURIComponent(month), { credentials: 'same-origin' })
+    if (!(id > 0)) { done([]); return Promise.resolve(); }
+    return fetch('api/receipt_file?action=list&template_id=' + id + '&month=' + encodeURIComponent(month), { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) { done((data && data.files) || []); })
       .catch(function () { done([]); });
@@ -1957,9 +1998,12 @@
         .then(function (res) { return res.json(); })
         .then(function (data) {
           if (!data.ok) throw new Error(data.error || '업로드에 실패했습니다.');
+          // 자동 분석 파이프라인용으로 저장된 파일 id·이름을 반환한다.
+          return { id: (data.file && data.file.id) || 0, name: (data.file && data.file.display_name) || file.name };
         })
         .catch(function (err) {
           toast('업로드 실패', (file.name || '') + ' — ' + (err.message || ''), 'danger');
+          return null;
         });
     }
 
@@ -1989,19 +2033,19 @@
     }
 
     // 파일 목록의 "AI 분석" 버튼 → 서버 저장 파일을 분석해 검토 카드 생성(모듈 브리지에 할당)
-    receiptAnalyzeFile = function (id, name, uploaderName, refresh, btn, skipConfirm) {
+    receiptAnalyzeFile = function (id, name, uploaderName, refresh, btn, skipConfirm, auto) {
       var tpl = currentTemplate();
-      if (!tpl) { toast('템플릿을 먼저 선택하세요.', '', 'danger'); return; }
-      if (isComposeLocked()) { toastLocked(); return; }
+      if (!tpl) { if (!auto) toast('템플릿을 먼저 선택하세요.', '', 'danger'); return Promise.resolve(); }
+      if (isComposeLocked()) { if (!auto) toastLocked(); return Promise.resolve(); }
       // 재분석: 편집된 항목이 있으면 API 호출 전에 확인(교체 예정). 일괄 재분석은 확인 1회이므로 skip.
       if (refresh && !isTeamMode() && !skipConfirm) {
         var secChk = document.querySelector('.draft-attach-group[data-receipt-id="' + id + '"]');
         if (secChk && secChk.querySelector('.draft-item-row') &&
-            !window.confirm('이 첨부의 항목을 다시 추출합니다. 수정한 내용이 사라집니다. 계속할까요?')) return;
+            !window.confirm('이 첨부의 항목을 다시 추출합니다. 수정한 내용이 사라집니다. 계속할까요?')) return Promise.resolve();
       }
       if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
       setAnalyzing(1);
-      fetch('api/receipt_file', {
+      return fetch('api/receipt_file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
@@ -2042,11 +2086,12 @@
             extracted.forEach(function (it) { addItemRow(mapIt(it)); });
           }
           schedulePreview();
-          toast('AI 분석 항목을 추가했습니다.', (name || '') + ' — 항목에서 확인·수정하세요.');
+          // 자동 파이프라인에선 파일별 성공 토스트를 억제하고, 끝에서 한 번만 요약한다.
+          if (!auto) toast('AI 분석 항목을 추가했습니다.', (name || '') + ' — 항목에서 확인·수정하세요.');
           if (data.warnings && data.warnings.length) toast('분석 경고', data.warnings.join(' / '));
           if (isTeamMode() && !data.cached) loadReceiptFiles();  // 팀은 별도 파일목록 갱신
         })
-        .catch(function (err) { toast('AI 분석 실패', err.message || '', 'danger'); })
+        .catch(function (err) { toast('AI 분석 실패', (name ? name + ' — ' : '') + (err.message || ''), 'danger'); })
         .then(function () {
           setAnalyzing(-1);
           if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); }
@@ -2115,13 +2160,41 @@
       if (isComposeLocked()) { toastLocked(); return; }
       var tpl = currentTemplate();
       if (!tpl) { toast('템플릿을 먼저 선택하세요.', '왼쪽에서 템플릿을 고른 뒤 업로드하세요.', 'danger'); return; }
+      var total = fileList.length;
+      var uname = (root.getAttribute('data-user-name') || '').trim();
       var jobs = [];
       for (var i = 0; i < fileList.length; i++) { jobs.push(storeFile(fileList[i])); }
-      Promise.all(jobs).then(function () {
-        // 비팀: 편집 항목을 보존하며 새 첨부 그룹을 반영. 팀: 기존 파일목록 갱신.
-        if (isTeamMode()) loadReceiptFiles();
-        else loadComposeGroups(snapshotItems());
-        toast('업로드했습니다.', '첨부 카드의 “AI 분석”으로 내용을 채우세요.');
+
+      // 업로드 → (첨부 그룹/목록 렌더) → 순차 AI 분석 → 자동 임시저장. 실패분은 건너뛴다(부분 성공).
+      Promise.all(jobs).then(function (stored) {
+        var ok = (stored || []).filter(Boolean);     // 업로드 성공 {id,name}만
+        // 분석이 항목행을 꽂을 수 있도록 그룹/목록 DOM을 먼저 렌더한다.
+        var rendered = isTeamMode() ? loadReceiptFiles() : loadComposeGroups(snapshotItems());
+        return Promise.resolve(rendered).then(function () { return ok; });
+      }).then(function (ok) {
+        if (!ok.length) { toast('업로드 실패', '파일을 업로드하지 못했습니다.', 'danger'); return null; }
+        // 순차 분석(동시 호출로 Claude API를 몰아치지 않도록). 한 파일 실패해도 체인은 계속.
+        return ok.reduce(function (p, f) {
+          return p.then(function () { return receiptAnalyzeFile(f.id, f.name, uname, false, null, false, true); });
+        }, Promise.resolve()).then(function () { return ok; });
+      }).then(function (ok) {
+        if (!ok) return;
+        var dropped = countAmountlessContentRows();
+        var req = autoSaveDraft();
+        if (!req) {
+          toast('업로드했습니다.', '분석에서 금액을 읽지 못해 임시저장할 항목이 없습니다. 항목을 확인하세요.', 'danger');
+          return;
+        }
+        return req.then(function (data) {
+          if (data && data.row) persistDraft(data.row);
+          var bits = [];
+          var failUp = total - ok.length;
+          if (failUp) bits.push('업로드 실패 ' + failUp + '개');
+          if (dropped) bits.push('금액 미추출 ' + dropped + '행 제외');
+          toast(ok.length + '개 업로드·AI분석·임시저장 완료', bits.length ? bits.join(' · ') : '항목에서 확인·수정하세요.');
+        }).catch(function (err) {
+          toast('임시저장 실패', err.message || '', 'danger');
+        });
       });
     }
 

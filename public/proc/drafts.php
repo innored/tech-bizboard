@@ -132,6 +132,40 @@ try {
             'quote' => $quote,
         ]);
     }
+    if ($action === 'reset') {
+        // 초기화: 템플릿+월의 기안(결제항목 CASCADE)과 첨부 전체를 삭제해 미작성으로 되돌린다.
+        $month = tbb_normalize_month((string) ($body['month'] ?? ''));
+        $templateId = (int) ($body['template_id'] ?? 0);
+        if ($templateId < 1) {
+            tbb_json(['ok' => false, 'error' => '템플릿 id가 필요합니다.'], 400);
+        }
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+        try {
+            $deletedDrafts = $drafts->deleteByTemplateMonth($templateId, $month);
+            $paths = tbb_receipts()->deleteAllFor($templateId, $month);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if ($e instanceof InvalidArgumentException) {
+                throw $e; // 월 마감 등 → 아래 공통 핸들러에서 400
+            }
+            tbb_json(['ok' => false, 'error' => '초기화 실패: ' . $e->getMessage()], 500);
+        }
+        // DB 커밋 후 실제 파일 삭제(실패는 조용히 무시 — DB는 이미 정리됨).
+        foreach ($paths as $p) {
+            if (is_file($p)) {
+                @unlink($p);
+            }
+        }
+        tbb_json([
+            'ok'               => true,
+            'deleted_drafts'   => $deletedDrafts,
+            'deleted_receipts' => count($paths),
+        ]);
+    }
 
     $id = (int) ($body['id'] ?? 0);
     if ($id < 1) {

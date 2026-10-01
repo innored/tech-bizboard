@@ -191,7 +191,7 @@ require __DIR__ . '/_header.php';
                 <a class="btn btn-outline btn-sm tooltip tooltip-bottom" id="draft-download-all" hidden href="#" data-tooltip="첨부 파일을 한꺼번에 받습니다.">전체 파일 다운로드</a>
                 <button class="btn btn-outline btn-sm tooltip tooltip-bottom" type="button" data-action="load-previous" data-tooltip="지난달 항목을 가져와 날짜만 이번 달로 바꿉니다.">지난달 불러오기</button>
                 <button class="btn btn-outline btn-sm tooltip tooltip-bottom" type="button" data-action="refresh-rates" data-tooltip="결제일(없으면 오늘) 매매기준율로 다시 계산합니다.">환율 조회</button>
-                <button class="btn btn-outline btn-sm tooltip tooltip-bottom" type="button" data-action="clear-items" data-tooltip="입력한 결제 항목을 모두 지웁니다.">초기화</button>
+                <button class="btn btn-outline btn-sm tooltip tooltip-bottom" type="button" data-action="clear-items" data-tooltip="기안과 첨부 파일을 모두 삭제하고 미작성으로 되돌립니다.">초기화</button>
                 <button class="btn btn-secondary btn-sm tooltip tooltip-bottom" type="button" data-action="add-item" data-tooltip="입력 항목을 추가합니다.">+ 항목 추가</button>
               </div>
             </div>

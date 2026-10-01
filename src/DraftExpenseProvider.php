@@ -46,6 +46,22 @@ class DraftExpenseProvider
         return $this->bypassMonthLock || !self::isMonthLocked($yearMonth, $this->now);
     }
 
+    /**
+     * 템플릿+월의 기안을 삭제한다(결제항목은 FK ON DELETE CASCADE). "초기화"(미작성 복귀)용.
+     * 삭제된 기안 행 수를 반환한다.
+     */
+    public function deleteByTemplateMonth(int $templateId, string $yearMonth): int
+    {
+        $this->assertMonth($yearMonth);
+        $this->assertWritableMonth($yearMonth);
+        $stmt = $this->pdo->prepare(
+            'DELETE FROM tb_draft_expenses WHERE expense_template_id = :t AND target_year_month = :ym'
+        );
+        $stmt->execute(['t' => $templateId, 'ym' => $yearMonth]);
+
+        return $stmt->rowCount();
+    }
+
     /** 전전월(지난달보다 앞선 달)은 수정할 수 없다. 9월이면 7월부터 잠근다. 매출과 동일 규칙. */
     public static function isMonthLocked(string $yearMonth, ?DateTimeImmutable $now = null): bool
     {
