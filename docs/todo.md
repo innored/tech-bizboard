@@ -108,4 +108,4 @@ CREATE TABLE tb_team_revenues (
 
 - PHP: `src/`, `public/proc/`, `view/` 변경 파일 일괄 운영 docroot 반영
 - JS:  `public/asset/js/revenues.js`, `public/asset/js/dashboard.js` 운영 docroot 반영
-- 업로드 저장 디렉터리(`public/uploads/receipts/` 또는 설정된 경로) 쓰기 권한 확인
+- 업로드 저장 디렉터리(`storage/revenue-receipts/` 또는 설정된 경로) 쓰기 권한 확인
