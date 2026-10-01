@@ -155,7 +155,7 @@
       .then(function (res) { return res.json(); })
       .then(function (data) {
         if (!data.ok) throw new Error(data.error || '목록을 불러오지 못했습니다.');
-        return data.rows || [];
+        return data;
       });
   }
 
@@ -165,9 +165,9 @@
     var yearReq = fetchRows('?year=' + encodeURIComponent(y));
     if (!m) {
       return yearReq
-        .then(function (rows) {
-          renderYearIndex(rows);
-          renderYearGroups(rows);
+        .then(function (data) {
+          renderYearIndex(data.rows || [], data.free_value_year || 0);
+          renderYearGroups(data.rows || []);
         })
         .catch(function (err) {
           toast('목록 오류', err.message, 'danger');
@@ -178,8 +178,8 @@
       fetchRows('?year=' + encodeURIComponent(y) + '&month=' + encodeURIComponent(m))
     ])
       .then(function (pair) {
-        renderYearIndex(pair[0]);
-        renderMonthTable(pair[1]);
+        renderYearIndex(pair[0].rows || [], pair[0].free_value_year || 0);
+        renderMonthTable(pair[1].rows || [], pair[1].free_value_month || 0);
       })
       .catch(function (err) {
         toast('목록 오류', err.message, 'danger');
@@ -524,7 +524,7 @@
     );
   }
 
-  function renderYearIndex(rows) {
+  function renderYearIndex(rows, freeValueYear) {
     var year = currentYear();
     var buckets = yearMonthBuckets(year, rows);
     var supply = 0;
@@ -542,6 +542,7 @@
     setText('rev-year-vat', fmt(vat));
     setText('rev-year-total', fmt(total));
     setText('rev-year-count', '총 ' + count + '건');
+    setText('rev-year-free', fmt(freeValueYear || 0));
     return buckets;
   }
 
@@ -554,15 +555,18 @@
     if (yearEmpty) yearEmpty.hidden = true;
   }
 
-  function renderMonthTable(rows) {
+  function renderMonthTable(rows, freeValueMonth) {
     if (!listBody) return;
     listBody.innerHTML = (rows || []).map(function (row) { return listRowHtml(row); }).join('');
     updateListSummary();
+    setText('rev-sum-free', fmt(freeValueMonth || 0));
   }
 
   function refreshYearIndex() {
     fetchRows('?year=' + encodeURIComponent(currentYear()))
-      .then(renderYearIndex)
+      .then(function (data) {
+        renderYearIndex(data.rows || [], data.free_value_year || 0);
+      })
       .catch(function () { /* 월 표는 유지 */ });
   }
 

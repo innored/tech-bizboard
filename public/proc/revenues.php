@@ -30,19 +30,33 @@ if ($method === 'GET') {
         if ($revenues->isWritableMonth($month)) {
             $revenues->ensureMonth($month);
         }
-        tbb_rev_json(['ok' => true, 'rows' => $revenues->listByMonth($month)]);
+        tbb_rev_json([
+            'ok'                => true,
+            'rows'              => $revenues->listByMonth($month),
+            'free_value_month'  => $revenues->freeValueByMonth($month),
+            'free_value_year'   => $revenues->freeValueByYear(substr($month, 0, 4)),
+        ]);
     }
     if (preg_match('/^\d{2}$/', $month) === 1 && preg_match('/^\d{4}$/', $year) === 1) {
         $ym = $year . '-' . $month;
         if ($revenues->isWritableMonth($ym)) {
             $revenues->ensureMonth($ym);
         }
-        tbb_rev_json(['ok' => true, 'rows' => $revenues->listByMonth($ym)]);
+        tbb_rev_json([
+            'ok'                => true,
+            'rows'              => $revenues->listByMonth($ym),
+            'free_value_month'  => $revenues->freeValueByMonth($ym),
+            'free_value_year'   => $revenues->freeValueByYear($year),
+        ]);
     }
     if (preg_match('/^\d{4}$/', $year) !== 1) {
         $year = (new DateTimeImmutable('now', new DateTimeZone('Asia/Seoul')))->format('Y');
     }
-    tbb_rev_json(['ok' => true, 'rows' => $revenues->listByYear($year)]);
+    tbb_rev_json([
+        'ok'               => true,
+        'rows'             => $revenues->listByYear($year),
+        'free_value_year'  => $revenues->freeValueByYear($year),
+    ]);
 }
 
 $raw = file_get_contents('php://input');
