@@ -35,4 +35,15 @@ $paths2 = $prov->deleteAllFor((int) $r2['id']);
 $rev->delete((int) $r2['id']);
 expect_eq(count($prov->listFor((int) $r2['id'])), 0, '수입 삭제 흐름 후 증빙 0건');
 
+// D-1: delete 흐름 후 파일이 실제로 디스크에서 제거되는지 검증 ($committed guard)
+$r3 = $rev->createOneOff(['project_name'=>'파일삭제검증','assignee'=>'루시','received_date'=>'2026-09-14','service_category'=>'솔루션 서비스','billing_type'=>'PAID','supply_krw'=>5000]);
+$row3 = $prov->store((int) $r3['id'], 'receipt3.pdf', '%PDF-1.4 d3', 'application/pdf', '루시');
+$absPath3 = $prov->absPath($row3);
+expect_true(is_file($absPath3), 'D-1: 삭제 전 파일 존재');
+$paths3 = $prov->deleteAllFor((int) $r3['id']);
+$rev->delete((int) $r3['id']);
+foreach ($paths3 as $p) { if (is_file($p)) { @unlink($p); } }
+expect_true(!is_file($absPath3), 'D-1: delete 흐름 후 파일 제거됨');
+expect_eq(count($prov->listFor((int) $r3['id'])), 0, 'D-1: delete 흐름 후 listFor 0건');
+
 tbb_test_done();

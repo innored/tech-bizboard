@@ -68,17 +68,21 @@ try {
         $id = (int) ($body['id'] ?? 0);
         $pdo = Database::connection();
         $paths = [];
+        $committed = false;
         $pdo->beginTransaction();
         try {
             $paths = tbb_revenue_receipts()->deleteAllFor($id); // 경로 수집 + 증빙행 삭제
             $revenues->delete($id);                              // 수입행 삭제
             $pdo->commit();
+            $committed = true;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
             if ($e instanceof InvalidArgumentException) { throw $e; }
             tbb_rev_json(['ok' => false, 'error' => '삭제 실패: ' . $e->getMessage()], 500);
         }
-        foreach ($paths as $p) { if (is_file($p)) { @unlink($p); } }
+        if ($committed) {
+            foreach ($paths as $p) { if (is_file($p)) { @unlink($p); } }
+        }
         tbb_rev_json(['ok' => true]);
     }
 } catch (InvalidArgumentException $e) {
