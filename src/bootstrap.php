@@ -28,6 +28,7 @@ require_once __DIR__ . '/ReceiptAnalyzer.php';
 require_once __DIR__ . '/ReceiptValidator.php';
 require_once __DIR__ . '/TeamLedgerParser.php';
 require_once __DIR__ . '/DraftReceiptProvider.php';
+require_once __DIR__ . '/RevenueReceiptProvider.php';
 require_once __DIR__ . '/DraftTextProcessor.php';
 require_once __DIR__ . '/ExpenseTemplateProvider.php';
 require_once __DIR__ . '/DraftExpenseProvider.php';
@@ -366,6 +367,14 @@ function tbb_receipt_analyzer(): ReceiptAnalyzer
 function tbb_receipts(): DraftReceiptProvider
 {
     $provider = new DraftReceiptProvider(Database::connection(), tbb_root() . '/storage/receipts');
+    $provider->setCreatedBy(tbb_created_by());
+
+    return $provider;
+}
+
+function tbb_revenue_receipts(): RevenueReceiptProvider
+{
+    $provider = new RevenueReceiptProvider(Database::connection(), tbb_root() . '/storage/revenue-receipts');
     $provider->setCreatedBy(tbb_created_by());
 
     return $provider;
