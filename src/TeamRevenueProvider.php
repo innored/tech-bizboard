@@ -207,7 +207,7 @@ class TeamRevenueProvider
     {
         $current = $this->requireId($id);
         $this->assertWritable((string) ($current['target_year_month'] ?? ''));
-        $row = $this->normalize(array_merge($current, $data), false);
+        $row = $this->normalize(array_merge($current, $data), false, $data);
         $this->assertWritable((string) $row['target_year_month']);
         $row['id'] = $id;
         $stmt = $this->pdo->prepare(
@@ -323,11 +323,13 @@ class TeamRevenueProvider
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param array<string, mixed> $data        정규화 대상(update 시 current+caller 병합본)
+     * @param array<string, mixed>|null $callerData  caller 원본(isset 판단용; null=데이터와 동일)
      * @return array<string, mixed>
      */
-    private function normalize(array $data, bool $creating): array
+    private function normalize(array $data, bool $creating, ?array $callerData = null): array
     {
+        $callerData ??= $data;
         $name = trim((string) ($data['project_name'] ?? ''));
         $assignee = trim((string) ($data['assignee'] ?? ''));
         $date = trim((string) ($data['received_date'] ?? ''));
@@ -358,8 +360,9 @@ class TeamRevenueProvider
             $money = ['supply_krw' => 0, 'vat_krw' => 0, 'amount_krw' => 0];
         } else {
             $listValue = 0; // 유상은 정상가 미사용
-            // money_field 가 없으면 공급가에서 부가세·합계를 자동 계산한다.
-            if (trim((string) ($data['money_field'] ?? '')) === '') {
+            // caller가 vat_krw·amount_krw 둘 다 넘기지 않았으면 공급가에서 자동 계산한다.
+            // 어느 한쪽이라도 caller가 명시했으면 normalizeMoney() 결과를 그대로 쓴다.
+            if (!isset($callerData['vat_krw']) && !isset($callerData['amount_krw'])) {
                 $money = self::applySupply($money['supply_krw']);
             }
         }

@@ -45,4 +45,13 @@ try { $rev->createOneOff(['project_name'=>'x','assignee'=>'루시','received_dat
 catch (InvalidArgumentException $e) { $bad = true; }
 expect_true($bad, '목록 밖 서비스구분 거부');
 
+// 유상 비표준 부가세: caller가 vat_krw+amount_krw를 직접 지정하면 덮어쓰지 않는다
+$nonStdVat = $rev->createOneOff([
+    'project_name' => '비표준 부가세', 'assignee' => '루시', 'received_date' => '2026-09-20',
+    'billing_type' => 'PAID',
+    'supply_krw' => 200000, 'vat_krw' => 10000, 'amount_krw' => 210000,
+]);
+expect_eq((int) $nonStdVat['vat_krw'],    10000,  '비표준 부가세 보존(덮어쓰기 금지)');
+expect_eq((int) $nonStdVat['amount_krw'], 210000, '비표준 합계 보존(220000으로 덮으면 실패)');
+
 tbb_test_done();
