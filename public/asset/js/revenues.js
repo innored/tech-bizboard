@@ -360,6 +360,8 @@
         ' data-supply="' + escapeAttr(String(supplyKrw)) + '"' +
         ' data-vat="' + escapeAttr(String(vatKrw)) + '"' +
         ' data-amount="' + escapeAttr(String(amountKrw)) + '"' +
+        ' data-list-value="' + escapeAttr(String(listKrw)) + '"' +
+        ' data-status="' + escapeAttr(row.status || 'COMPLETED') + '"' +
         ' data-created-by="' + escapeAttr(row.created_by || '') + '">' +
         '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
         '<td class="col-project">' + escapeHtml(row.project_name || '') + '</td>' +
@@ -396,7 +398,7 @@
       amount_krw: toInt(tr.getAttribute('data-amount') || ''),
       list_value_krw: toInt(tr.getAttribute('data-list-value') || ''),
       assignee: tr.querySelector('.col-assignee') ? tr.querySelector('.col-assignee').textContent.trim() : '',
-      status: 'COMPLETED',
+      status: tr.getAttribute('data-status') || 'COMPLETED',
       note: tr.querySelector('.col-note') ? tr.querySelector('.col-note').textContent.trim() : '',
       created_by: tr.getAttribute('data-created-by') || '',
       revenue_template_id: null
