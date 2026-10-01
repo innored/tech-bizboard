@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS tb_revenue_templates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_name TEXT NOT NULL,
     client_name TEXT,
+    service_category TEXT NOT NULL DEFAULT '',
     supply_krw INTEGER NOT NULL DEFAULT 0,
     assignee TEXT NOT NULL,
     start_year_month TEXT NOT NULL,
@@ -91,9 +92,12 @@ CREATE TABLE IF NOT EXISTS tb_team_revenues (
     target_year_month TEXT NOT NULL,
     project_name TEXT NOT NULL,
     client_name TEXT,
+    service_category TEXT NOT NULL DEFAULT '',
     supply_krw INTEGER NOT NULL DEFAULT 0,
     vat_krw INTEGER NOT NULL DEFAULT 0,
     amount_krw INTEGER NOT NULL,
+    billing_type TEXT NOT NULL DEFAULT 'PAID',
+    list_value_krw INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'COMPLETED' CHECK (status IN ('PENDING', 'COMPLETED')),
     received_date TEXT NOT NULL,
     assignee TEXT NOT NULL,
@@ -143,6 +147,19 @@ CREATE TABLE IF NOT EXISTS tb_draft_receipts (
 );
 CREATE INDEX IF NOT EXISTS ix_tb_draft_receipts_tpl_ym
     ON tb_draft_receipts (expense_template_id, target_year_month);
+
+CREATE TABLE IF NOT EXISTS tb_revenue_receipts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    revenue_id INTEGER NOT NULL,
+    display_name TEXT NOT NULL,
+    stored_name TEXT NOT NULL,
+    mime TEXT,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    uploaded_by TEXT,
+    uploaded_name TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (revenue_id) REFERENCES tb_team_revenues(id) ON DELETE CASCADE
+);
 
 -- SSO 로그인 시 적립하는 사용자 디렉터리(email→name). 영수증 이메일 매칭에 사용.
 CREATE TABLE IF NOT EXISTS tb_users (
