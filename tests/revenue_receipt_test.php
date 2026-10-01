@@ -28,4 +28,11 @@ try {
 }
 expect_true($threw, '없는 revenue_id → InvalidArgumentException');
 
+// 수입 삭제 → 증빙 정리 (proc와 동일 순서: deleteAllFor 먼저)
+$r2 = $rev->createOneOff(['project_name'=>'c','assignee'=>'루시','received_date'=>'2026-09-13','service_category'=>'컨설팅','billing_type'=>'PAID','supply_krw'=>1]);
+$prov->store((int) $r2['id'], 'a.pdf', '%PDF-1.4', 'application/pdf', '루시');
+$paths2 = $prov->deleteAllFor((int) $r2['id']);
+$rev->delete((int) $r2['id']);
+expect_eq(count($prov->listFor((int) $r2['id'])), 0, '수입 삭제 흐름 후 증빙 0건');
+
 tbb_test_done();
