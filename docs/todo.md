@@ -91,3 +91,21 @@ CREATE TABLE tb_team_revenues (
     note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+---
+
+## 5. 배포/마이그레이션 안내 (feature/revenue-service-type-attachments)
+
+### 2026-10-01 — 서비스구분 & 증빙 파일 기능
+
+**DB 마이그레이션 (1회 적용, 공유 DB 주의)**
+
+`sql/migrations/2026-10-01-revenue-service-type.sql` 을 운영 DB(`adtech_team`)에 **1회** 실행해야 한다.
+이 DB는 dev 와 prod 가 공유하므로 **마이그레이션 실행 즉시 dev 환경도 함께 영향** 받는다.
+배포 전 백업 또는 팀 공지 후 적용 권장.
+
+**코드 배포**
+
+- PHP: `src/`, `public/proc/`, `view/` 변경 파일 일괄 운영 docroot 반영
+- JS:  `public/asset/js/revenues.js`, `public/asset/js/dashboard.js` 운영 docroot 반영
+- 업로드 저장 디렉터리(`public/uploads/receipts/` 또는 설정된 경로) 쓰기 권한 확인
