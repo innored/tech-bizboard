@@ -732,15 +732,18 @@
     /* 공급가/정상가 가시성 */
     applyBillingVisibility(billing);
 
-    /* 증빙 섹션: 신규일 때 비활성 안내 */
+    /* 증빙 섹션 초기화 */
     var receipts = modalEl('rev-m-receipts');
     if (receipts) {
       if (isNew) {
         receipts.setAttribute('data-receipts-disabled', '1');
         receipts.title = '저장 후 첨부 가능합니다.';
+        initRevReceiptsSection(receipts, false);
       } else {
         receipts.removeAttribute('data-receipts-disabled');
         receipts.title = '';
+        initRevReceiptsSection(receipts, true);
+        loadRevFiles();
       }
     }
 
@@ -856,11 +859,7 @@
           revModal.dataset.editId = String(savedRow.id);
           var titleEl = modalEl('rev-m-title');
           if (titleEl) titleEl.textContent = '수입 편집';
-          var receipts = modalEl('rev-m-receipts');
-          if (receipts) {
-            receipts.removeAttribute('data-receipts-disabled');
-            receipts.title = '';
-          }
+          enableRevReceipts();
           toast('저장됨', '수입을 저장했습니다. 증빙을 첨부할 수 있습니다.', 'success');
         } else {
           toast('저장됨', '수입을 저장했습니다.', 'success');
@@ -873,6 +872,199 @@
       .finally(function () {
         if (saveBtn) saveBtn.disabled = false;
       });
+  }
+
+  /* ════════════════════════════════════════
+     증빙 섹션 (revenue_file)
+  ════════════════════════════════════════ */
+
+  var REV_FILE_API = 'api/revenue_file';
+
+  var DOWNLOAD_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
+    '<path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
+
+  function currentRevId() {
+    return (revModal && revModal.dataset.editId) ? String(revModal.dataset.editId).trim() : '';
+  }
+
+  function renderRevFiles(container, files) {
+    container.innerHTML = '';
+    if (!files.length) {
+      var empty = document.createElement('p');
+      empty.className = 'rev-receipts-empty';
+      empty.textContent = '첨부된 증빙이 없습니다.';
+      container.appendChild(empty);
+      return;
+    }
+    var ul = document.createElement('ul');
+    ul.className = 'rev-receipts-list';
+    files.forEach(function (f) {
+      var li = document.createElement('li');
+      li.className = 'rev-receipts-item';
+
+      var a = document.createElement('a');
+      a.className = 'rev-receipts-name';
+      a.href = REV_FILE_API + '?action=download&id=' + encodeURIComponent(f.id);
+      a.textContent = f.display_name || f.original_name || String(f.id);
+      a.setAttribute('aria-label', (f.display_name || f.original_name || '') + ' 다운로드');
+      li.appendChild(a);
+
+      if (f.size_bytes) {
+        var meta = document.createElement('span');
+        meta.className = 'rev-receipts-meta';
+        var n = Number(f.size_bytes) || 0;
+        meta.textContent = n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' :
+                           (n >= 1024 ? Math.round(n / 1024) + 'KB' : n + 'B');
+        li.appendChild(meta);
+      }
+
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn btn-ghost btn-icon btn-sm rev-receipts-del';
+      del.setAttribute('aria-label', '삭제');
+      del.innerHTML = TRASH_ICON;
+      del.addEventListener('click', function () {
+        if (!window.confirm('이 증빙 파일을 삭제할까요?')) return;
+        deleteRevFile(f.id);
+      });
+      li.appendChild(del);
+
+      ul.appendChild(li);
+    });
+    container.appendChild(ul);
+  }
+
+  function loadRevFiles() {
+    var revId = currentRevId();
+    var receipts = modalEl('rev-m-receipts');
+    if (!receipts || !revId) return;
+    var listEl = receipts.querySelector('.rev-receipts-file-list');
+    if (!listEl) return;
+    fetch(REV_FILE_API + '?action=list&revenue_id=' + encodeURIComponent(revId), { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        renderRevFiles(listEl, (data && data.files) || []);
+      })
+      .catch(function () { /* 목록 조회 실패는 조용히 */ });
+  }
+
+  function deleteRevFile(fid) {
+    fetch(REV_FILE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ action: 'delete', id: fid, csrf: csrf })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || '삭제에 실패했습니다.');
+        toast('삭제됨', '증빙 파일을 삭제했습니다.', 'success');
+        loadRevFiles();
+      })
+      .catch(function (err) { toast('삭제 실패', err.message || '', 'danger'); });
+  }
+
+  function uploadRevFile(file) {
+    var revId = currentRevId();
+    if (!revId || !file) return;
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('revenue_id', revId);
+    fd.append('csrf', csrf);
+    var receipts = modalEl('rev-m-receipts');
+    var progress = receipts ? receipts.querySelector('.rev-receipts-progress') : null;
+    if (progress) progress.hidden = false;
+    fetch(REV_FILE_API, { method: 'POST', credentials: 'same-origin', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || '업로드에 실패했습니다.');
+        toast('첨부됨', escapeHtml(file.name) + ' 을 첨부했습니다.', 'success');
+        loadRevFiles();
+      })
+      .catch(function (err) { toast('업로드 실패', err.message || '', 'danger'); })
+      .finally(function () { if (progress) progress.hidden = true; });
+  }
+
+  function initRevReceiptsSection(receipts, enabled) {
+    receipts.innerHTML = '';
+    if (!enabled) {
+      var hint = document.createElement('p');
+      hint.className = 'rev-receipts-hint';
+      hint.textContent = '저장 후 증빙을 첨부할 수 있습니다.';
+      receipts.appendChild(hint);
+      return;
+    }
+
+    /* 드롭존 */
+    var dropzone = document.createElement('div');
+    dropzone.className = 'rev-receipts-dropzone';
+    dropzone.setAttribute('role', 'button');
+    dropzone.setAttribute('tabindex', '0');
+    dropzone.setAttribute('aria-label', '증빙 파일 선택 또는 드래그');
+
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.className = 'rev-receipts-input';
+    fileInput.setAttribute('aria-label', '증빙 파일 선택');
+    fileInput.style.display = 'none';
+
+    var dzLabel = document.createElement('span');
+    dzLabel.className = 'rev-receipts-dz-label';
+    dzLabel.textContent = '파일을 드래그하거나 클릭해서 선택';
+
+    dropzone.appendChild(fileInput);
+    dropzone.appendChild(dzLabel);
+
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    dropzone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      dropzone.classList.add('is-dragover');
+    });
+    dropzone.addEventListener('dragleave', function () {
+      dropzone.classList.remove('is-dragover');
+    });
+    dropzone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      dropzone.classList.remove('is-dragover');
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (!files) return;
+      for (var i = 0; i < files.length; i++) { uploadRevFile(files[i]); }
+    });
+    fileInput.addEventListener('change', function () {
+      if (!fileInput.files) return;
+      for (var i = 0; i < fileInput.files.length; i++) { uploadRevFile(fileInput.files[i]); }
+      fileInput.value = '';
+    });
+
+    /* 진행 표시 */
+    var progress = document.createElement('p');
+    progress.className = 'rev-receipts-progress';
+    progress.textContent = '업로드 중...';
+    progress.hidden = true;
+
+    /* 파일 목록 컨테이너 */
+    var listEl = document.createElement('div');
+    listEl.className = 'rev-receipts-file-list';
+
+    receipts.appendChild(dropzone);
+    receipts.appendChild(progress);
+    receipts.appendChild(listEl);
+  }
+
+  function enableRevReceipts() {
+    var receipts = modalEl('rev-m-receipts');
+    if (!receipts) return;
+    receipts.removeAttribute('data-receipts-disabled');
+    receipts.title = '';
+    initRevReceiptsSection(receipts, true);
+    loadRevFiles();
   }
 
   /* ════════════════════════════════════════
@@ -986,6 +1178,14 @@
     if (revModal && !revModal.hidden && e.target === revModal) {
       closeRevModal();
     }
+  });
+
+  /* 모달 내 유상/무상 select 실시간 토글 */
+  document.addEventListener('select:change', function (e) {
+    if (!revModal || revModal.hidden) return;
+    if (!e.target.closest('#rev-m-billing_type-wrap')) return;
+    var billing = (modalEl('rev-m-billing_type') || {}).value || 'PAID';
+    applyBillingVisibility(billing);
   });
 
   document.addEventListener('keydown', function (e) {
