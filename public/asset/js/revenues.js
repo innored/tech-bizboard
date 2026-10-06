@@ -904,6 +904,66 @@
     return (revModal && revModal.dataset.editId) ? String(revModal.dataset.editId).trim() : '';
   }
 
+  // 브라우저에서 바로 미리보기 가능한 타입 (PDF·이미지). xlsx 등은 다운로드만.
+  var PREVIEWABLE = { 'application/pdf': 1, 'image/jpeg': 1, 'image/png': 1, 'image/webp': 1 };
+  function isPreviewable(mime) { return !!PREVIEWABLE[String(mime || '').toLowerCase()]; }
+
+  function closeRevViewer() {
+    var overlay = document.getElementById('rev-viewer');
+    if (!overlay) return;
+    overlay.hidden = true;
+    var body = overlay.querySelector('.rev-viewer-body');
+    if (body) body.innerHTML = ''; // 로딩 중단·메모리 해제
+    document.body.classList.remove('rev-viewer-open');
+  }
+
+  function openRevViewer(f) {
+    var overlay = document.getElementById('rev-viewer');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'rev-viewer';
+      overlay.className = 'rev-viewer';
+      overlay.hidden = true;
+      overlay.innerHTML =
+        '<div class="rev-viewer-box" role="dialog" aria-modal="true" aria-label="증빙 미리보기">' +
+          '<div class="rev-viewer-head">' +
+            '<span class="rev-viewer-name"></span>' +
+            '<span class="rev-viewer-actions">' +
+              '<a class="btn btn-outline btn-sm rev-viewer-dl" rel="noopener">다운로드</a>' +
+              '<button type="button" class="btn btn-ghost btn-icon btn-sm rev-viewer-close" aria-label="닫기">✕</button>' +
+            '</span>' +
+          '</div>' +
+          '<div class="rev-viewer-body"></div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) closeRevViewer(); });
+      overlay.querySelector('.rev-viewer-close').addEventListener('click', closeRevViewer);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !overlay.hidden) closeRevViewer();
+      });
+    }
+    var viewUrl = REV_FILE_API + '?action=view&id=' + encodeURIComponent(f.id);
+    overlay.querySelector('.rev-viewer-name').textContent = f.display_name || '증빙';
+    overlay.querySelector('.rev-viewer-dl').href = REV_FILE_API + '?action=download&id=' + encodeURIComponent(f.id);
+    var body = overlay.querySelector('.rev-viewer-body');
+    body.innerHTML = '';
+    if (String(f.mime || '').toLowerCase() === 'application/pdf') {
+      var iframe = document.createElement('iframe');
+      iframe.className = 'rev-viewer-frame';
+      iframe.src = viewUrl;
+      iframe.title = f.display_name || '증빙';
+      body.appendChild(iframe);
+    } else {
+      var img = document.createElement('img');
+      img.className = 'rev-viewer-img';
+      img.src = viewUrl;
+      img.alt = f.display_name || '증빙';
+      body.appendChild(img);
+    }
+    overlay.hidden = false;
+    document.body.classList.add('rev-viewer-open');
+  }
+
   function renderRevFiles(container, files) {
     container.innerHTML = '';
     if (!files.length) {
@@ -933,6 +993,15 @@
         meta.textContent = n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' :
                            (n >= 1024 ? Math.round(n / 1024) + 'KB' : n + 'B');
         li.appendChild(meta);
+      }
+
+      if (isPreviewable(f.mime)) {
+        var view = document.createElement('button');
+        view.type = 'button';
+        view.className = 'btn btn-outline btn-sm rev-receipts-view';
+        view.textContent = '보기';
+        view.addEventListener('click', function () { openRevViewer(f); });
+        li.appendChild(view);
       }
 
       var del = document.createElement('button');

@@ -4,7 +4,8 @@
  *
  * POST multipart/form-data: file, revenue_id, csrf, [user_name]  → {ok, file}
  * GET  ?action=list&revenue_id=..                                 → {ok, files:[...]}
- * GET  ?action=download&id=..                                     → 파일 스트리밍
+ * GET  ?action=download&id=..                                     → 파일 스트리밍(attachment)
+ * GET  ?action=view&id=..                                         → 파일 스트리밍(inline, 뷰어 미리보기)
  * POST action=delete, id, csrf                                    → {ok}
  *
  * 라우팅: api/revenue_file  (^api/([a-z_]+)/?$ → proc/$1.php)
@@ -108,6 +109,7 @@ if ($method === 'GET' && $action === 'list') {
         $files[] = [
             'id'            => (int) ($row['id'] ?? 0),
             'display_name'  => (string) ($row['display_name'] ?? ''),
+            'mime'          => (string) ($row['mime'] ?? ''),
             'size_bytes'    => (int) ($row['size_bytes'] ?? 0),
             'uploaded_by'   => $by,
             'uploaded_name' => (string) ($row['uploaded_name'] ?? ''),
@@ -118,8 +120,9 @@ if ($method === 'GET' && $action === 'list') {
     rev_file_json(['ok' => true, 'files' => $files]);
 }
 
-// ── 다운로드 ─────────────────────────────────────────────────────────────────
-if ($method === 'GET' && $action === 'download') {
+// ── 다운로드 / 미리보기 ───────────────────────────────────────────────────────
+// action=download → 첨부(강제 저장), action=view → inline(브라우저 뷰어로 바로 표시)
+if ($method === 'GET' && ($action === 'download' || $action === 'view')) {
     $id  = (int) ($_GET['id'] ?? 0);
     $row = $id > 0 ? $recs->findById($id) : null;
     if ($row === null) {
@@ -132,10 +135,11 @@ if ($method === 'GET' && $action === 'download') {
     $name     = (string) ($row['display_name'] ?? '증빙');
     $mime     = str_replace(["\r", "\n"], '', (string) ($row['mime'] ?? 'application/octet-stream'));
     $fallback = str_replace(['"', "\\"], '_', (string) preg_replace('/[^\x20-\x7E]/', '_', $name));
+    $disposition = $action === 'view' ? 'inline' : 'attachment';
 
     header('Content-Type: ' . $mime);
     header('Content-Length: ' . (string) filesize($path));
-    header("Content-Disposition: attachment; filename=\"{$fallback}\"; filename*=UTF-8''" . rawurlencode($name));
+    header("Content-Disposition: {$disposition}; filename=\"{$fallback}\"; filename*=UTF-8''" . rawurlencode($name));
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, no-store');
     readfile($path);
