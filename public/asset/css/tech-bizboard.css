@@ -1600,9 +1600,24 @@ html, body, input, button, select, textarea {
   border-top: 1px solid var(--ink-100);
 }
 .dash-kpi-cell { min-width: 0; }
+/* 보조 지표(무상 제공)는 라벨·값을 한 줄 가로로 — 세로 공간 절약 */
+.dash-kpi-cell.is-inline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+.dash-kpi-cell.is-inline .dash-kpi-label { margin: 0; }
+.dash-kpi-cell.is-inline .dash-kpi-num { font-size: 15px; font-weight: 700; }
 .dash-kpi-cell + .dash-kpi-cell {
   padding-left: 24px;
   border-left: 1px solid var(--ink-100);
+}
+/* 무상 제공(2행 1열, 매출 아래)은 형제 규칙의 좌측 border/padding을 상속받으므로 리셋 */
+.dash-kpi-cell.is-inline {
+  padding-left: 0;
+  border-left: 0;
 }
 .dash-kpi-label {
   display: inline-flex;
