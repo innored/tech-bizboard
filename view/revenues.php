@@ -69,9 +69,11 @@ require __DIR__ . '/_header.php';
           </div>
           <div class="rev-year-kpis" aria-label="연간 요약">
             <article class="rev-year-kpi rev-year-paid is-total">
-              <span class="rev-year-kpi-label">유상 합계</span>
-              <strong class="rev-year-kpi-amt"><span id="rev-year-total">0</span><span class="unit">원</span></strong>
-              <span class="rev-year-kpi-n" id="rev-year-count">총 0건</span>
+              <div class="rev-year-paid-main">
+                <span class="rev-year-kpi-label">유상 합계</span>
+                <strong class="rev-year-kpi-amt"><span id="rev-year-total">0</span><span class="unit">원</span></strong>
+                <span class="rev-year-kpi-n" id="rev-year-count">총 0건</span>
+              </div>
               <div class="rev-year-sub">
                 <span class="rev-year-sub-row"><span class="rev-year-sub-label">공급가</span><span class="rev-year-sub-amt"><span id="rev-year-supply">0</span>원</span></span>
                 <span class="rev-year-sub-row"><span class="rev-year-sub-label">부가세</span><span class="rev-year-sub-amt"><span id="rev-year-vat">0</span>원</span></span>

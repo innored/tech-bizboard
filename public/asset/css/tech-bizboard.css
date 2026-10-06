@@ -1011,15 +1011,27 @@ html, body, input, button, select, textarea {
   gap: 10px;
   margin: 0 0 14px;
 }
-/* 유상 블록: 합계(큰 숫자) 아래 공급가·부가세를 작게 분리 표기 */
-.rev-year-sub {
-  width: 100%;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--ink-200) 70%, transparent);
+/* 유상 블록: 합계(좌, 큰 숫자) · 공급가·부가세(우, 작게) 가로 배치 → height 절약 */
+.rev-year-paid {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.rev-year-paid-main {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  align-items: flex-start;
+  gap: 4px;
+}
+.rev-year-sub {
+  flex: none;
+  min-width: 180px;
+  padding-left: 20px;
+  border-left: 1px solid color-mix(in srgb, var(--ink-200) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .rev-year-sub-row {
   display: flex;
