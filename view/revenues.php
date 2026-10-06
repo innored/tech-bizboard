@@ -127,6 +127,7 @@ require __DIR__ . '/_header.php';
                   <th class="col-author">작성자</th>
                   <th class="col-kind">구분</th>
                   <th class="col-note">메모</th>
+                  <th class="col-receipts">증빙</th>
                   <th class="col-actions">액션</th>
                 </tr>
               </thead>
@@ -145,6 +146,7 @@ require __DIR__ . '/_header.php';
                   <td class="col-author"></td>
                   <td class="col-kind"></td>
                   <td class="col-note"></td>
+                  <td class="col-receipts"></td>
                   <td class="col-actions"></td>
                 </tr>
               </tfoot>

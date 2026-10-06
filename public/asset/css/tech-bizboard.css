@@ -1194,6 +1194,17 @@ html, body, input, button, select, textarea {
   width: 1%;
   white-space: nowrap;
 }
+.rev-page #rev-list-table .col-receipts {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+}
+.rev-page #rev-list-table .rev-receipt-badge {
+  display: inline-block;
+  font-size: 0.85em;
+  color: var(--text-faint, #888);
+  white-space: nowrap;
+}
 .rev-page #rev-list-table .col-project,
 .rev-page #rev-tpl-table .col-project {
   width: auto;

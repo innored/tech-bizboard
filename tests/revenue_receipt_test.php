@@ -46,4 +46,13 @@ foreach ($paths3 as $p) { if (is_file($p)) { @unlink($p); } }
 expect_true(!is_file($absPath3), 'D-1: delete 흐름 후 파일 제거됨');
 expect_eq(count($prov->listFor((int) $r3['id'])), 0, 'D-1: delete 흐름 후 listFor 0건');
 
+// 목록 receipt_count 집계 (📎 표시용): 한 수입에 2건 첨부 → listByMonth가 receipt_count=2 반환
+$rc = $rev->createOneOff(['project_name'=>'카운트검증','assignee'=>'루시','received_date'=>'2026-09-20','service_category'=>'컨설팅','billing_type'=>'PAID','supply_krw'=>1000]);
+$prov->store((int) $rc['id'], 'c1.pdf', '%PDF-1.4', 'application/pdf', '루시');
+$prov->store((int) $rc['id'], 'c2.pdf', '%PDF-1.4', 'application/pdf', '루시');
+$found = null;
+foreach ($rev->listByMonth('2026-09') as $r9) { if ((int) $r9['id'] === (int) $rc['id']) { $found = $r9; break; } }
+expect_true($found !== null, 'RC: listByMonth에 해당 수입 존재');
+expect_eq((int) ($found['receipt_count'] ?? -1), 2, 'RC: listByMonth receipt_count=2');
+
 tbb_test_done();

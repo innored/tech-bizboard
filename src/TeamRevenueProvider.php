@@ -138,7 +138,9 @@ class TeamRevenueProvider
     {
         $this->assertYearMonth($yearMonth);
         $stmt = $this->pdo->prepare(
-            'SELECT * FROM tb_team_revenues
+            'SELECT *,
+                    (SELECT COUNT(*) FROM tb_revenue_receipts rr WHERE rr.revenue_id = tb_team_revenues.id) AS receipt_count
+             FROM tb_team_revenues
              WHERE target_year_month = :ym
              ORDER BY received_date, id'
         );

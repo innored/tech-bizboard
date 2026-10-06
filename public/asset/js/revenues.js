@@ -379,6 +379,9 @@
         '<td class="col-author"><span class="rev-author">' + escapeHtml(row.created_by || '') + '</span></td>' +
         '<td class="rev-kind col-kind">' + (repeating ? '<span class="badge badge-brand">반복</span>' : '<span class="badge badge-muted">단건</span>') + '</td>' +
         '<td class="col-note">' + escapeHtml(row.note || '') + '</td>' +
+        '<td class="col-receipts">' + (Number(row.receipt_count || 0) > 0
+          ? '<span class="rev-receipt-badge" title="증빙 ' + Number(row.receipt_count) + '건">📎 ' + Number(row.receipt_count) + '</span>'
+          : '') + '</td>' +
         '<td class="col-actions">' + deleteBtn('delete-row') + '</td>' +
       '</tr>'
     );
@@ -773,6 +776,11 @@
     if (!revModal) return;
     revModal.hidden = true;
     document.body.classList.remove('rev-modal-open');
+    // 증빙이 추가/삭제됐으면 목록의 📎 개수를 갱신한다.
+    if (revReceiptsDirty) {
+      revReceiptsDirty = false;
+      loadList();
+    }
   }
 
   function upsertListRow(row) {
@@ -883,6 +891,8 @@
   ════════════════════════════════════════ */
 
   var REV_FILE_API = 'api/revenue_file';
+  // 모달에서 증빙을 올리거나 지우면 목록의 📎 개수가 바뀌므로, 모달을 닫을 때 목록을 새로고침한다.
+  var revReceiptsDirty = false;
 
   var DOWNLOAD_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
@@ -966,6 +976,7 @@
       .then(function (data) {
         if (!data.ok) throw new Error(data.error || '삭제에 실패했습니다.');
         toast('삭제됨', '증빙 파일을 삭제했습니다.', 'success');
+        revReceiptsDirty = true;
         loadRevFiles();
       })
       .catch(function (err) { toast('삭제 실패', err.message || '', 'danger'); });
@@ -986,6 +997,7 @@
       .then(function (data) {
         if (!data.ok) throw new Error(data.error || '업로드에 실패했습니다.');
         toast('첨부됨', escapeHtml(file.name) + ' 을 첨부했습니다.', 'success');
+        revReceiptsDirty = true;
         loadRevFiles();
       })
       .catch(function (err) { toast('업로드 실패', err.message || '', 'danger'); })
