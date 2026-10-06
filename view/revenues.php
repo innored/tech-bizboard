@@ -99,17 +99,18 @@ require __DIR__ . '/_header.php';
               <div class="rev-card-meta">
                 <span class="text-sm text-faint" id="rev-sum-free-wrap">무상 <strong id="rev-sum-free">0</strong>원</span>
                 <span class="text-sm text-faint" id="rev-list-count">총 0건</span>
+                <button
+                  class="btn btn-primary btn-sm"
+                  type="button"
+                  data-action="add-row"
+                  id="rev-add-row"
+                  <?= $isYearView ? 'disabled' : '' ?>
+                >+ 추가</button>
               </div>
             </div>
           <p class="hint" id="rev-lock-hint" hidden>전전월 이전은 조회만 가능합니다. 당월과 전월만 수정할 수 있습니다.</p>
           <div class="rev-table-above">
-            <button
-              class="btn btn-primary btn-sm"
-              type="button"
-              data-action="add-row"
-              id="rev-add-row"
-              <?= $isYearView ? 'disabled' : '' ?>
-            >+ 추가</button>
+            <span class="rev-edit-hint">✎ 줄을 클릭하면 내용을 수정할 수 있어요</span>
           </div>
           <div class="table-wrap rev-table-wrap">
             <table class="table" id="rev-list-table">
@@ -126,7 +127,6 @@ require __DIR__ . '/_header.php';
                   <th class="col-assignee">담당</th>
                   <th class="col-author">작성자</th>
                   <th class="col-kind">구분</th>
-                  <th class="col-note">메모</th>
                   <th class="col-receipts">증빙</th>
                   <th class="col-actions">액션</th>
                 </tr>
@@ -145,7 +145,6 @@ require __DIR__ . '/_header.php';
                   <td class="col-assignee"></td>
                   <td class="col-author"></td>
                   <td class="col-kind"></td>
-                  <td class="col-note"></td>
                   <td class="col-receipts"></td>
                   <td class="col-actions"></td>
                 </tr>

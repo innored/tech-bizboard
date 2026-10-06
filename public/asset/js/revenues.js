@@ -362,6 +362,7 @@
         ' data-amount="' + escapeAttr(String(amountKrw)) + '"' +
         ' data-list-value="' + escapeAttr(String(listKrw)) + '"' +
         ' data-status="' + escapeAttr(row.status || 'COMPLETED') + '"' +
+        ' data-note="' + escapeAttr(row.note || '') + '"' +
         ' data-created-by="' + escapeAttr(row.created_by || '') + '">' +
         '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
         '<td class="col-project">' + escapeHtml(row.project_name || '') + '</td>' +
@@ -378,7 +379,6 @@
         '<td class="col-assignee">' + escapeHtml(row.assignee || '') + '</td>' +
         '<td class="col-author"><span class="rev-author">' + escapeHtml(row.created_by || '') + '</span></td>' +
         '<td class="rev-kind col-kind">' + (repeating ? '<span class="badge badge-brand">반복</span>' : '<span class="badge badge-muted">단건</span>') + '</td>' +
-        '<td class="col-note">' + escapeHtml(row.note || '') + '</td>' +
         '<td class="col-receipts">' + (Number(row.receipt_count || 0) > 0
           ? '<span class="rev-receipt-badge" title="증빙 ' + Number(row.receipt_count) + '건">📎 ' + Number(row.receipt_count) + '</span>'
           : '') + '</td>' +
@@ -402,7 +402,7 @@
       list_value_krw: toInt(tr.getAttribute('data-list-value') || ''),
       assignee: tr.querySelector('.col-assignee') ? tr.querySelector('.col-assignee').textContent.trim() : '',
       status: tr.getAttribute('data-status') || 'COMPLETED',
-      note: tr.querySelector('.col-note') ? tr.querySelector('.col-note').textContent.trim() : '',
+      note: tr.getAttribute('data-note') || '',
       created_by: tr.getAttribute('data-created-by') || '',
       revenue_template_id: null
     };

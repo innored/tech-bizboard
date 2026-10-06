@@ -1076,10 +1076,13 @@ html, body, input, button, select, textarea {
 }
 .rev-card-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 14px;
 }
+.rev-card-meta #rev-add-row { margin-left: 4px; }
 .rev-month-total {
   margin: 0;
   font-size: 13px;
@@ -1252,6 +1255,11 @@ html, body, input, button, select, textarea {
 .rev-page #rev-tpl-table .col-actions {
   width: 80px;
   min-width: 80px;
+}
+/* 수입 목록 액션은 삭제 버튼 하나뿐이라 좁게(편집은 줄 클릭) */
+.rev-page #rev-list-table .col-actions {
+  width: 44px;
+  min-width: 44px;
 }
 .rev-page #rev-tpl-table .col-period .input-wrap,
 .rev-page #rev-tpl-table .col-period .input.has-icon-left.is-period {
@@ -2065,8 +2073,13 @@ html, body, input, button, select, textarea {
 /* ── 수입 테이블 위 추가 버튼 영역 ── */
 .rev-table-above {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 10px;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.rev-edit-hint {
+  font-size: 12px;
+  color: var(--text-faint, #888);
 }
 
 /* ── 수입 테이블 신규 열 ── */
@@ -2221,8 +2234,11 @@ body.rev-viewer-open { overflow: hidden; }
 body.rev-modal-open { overflow: hidden; }
 
 /* 행 클릭 커서 */
-.rev-page #rev-list-table tbody tr.rev-row.is-click { cursor: pointer; }
+.rev-page #rev-list-table tbody tr.rev-row.is-click { cursor: pointer; transition: background .12s; }
 .rev-page #rev-list-table tbody tr.rev-row.is-click:hover td { background: var(--brand-subtle); }
+/* 클릭(수정) 가능함을 강조: hover 시 왼쪽 액센트 바 + 프로젝트명 밑줄 */
+.rev-page #rev-list-table tbody tr.rev-row.is-click:hover td:first-child { box-shadow: inset 3px 0 0 var(--brand-600); }
+.rev-page #rev-list-table tbody tr.rev-row.is-click:hover .col-project { text-decoration: underline; text-underline-offset: 2px; }
 
 @media (max-width: 540px) {
   .rev-modal-grid { grid-template-columns: 1fr; }
