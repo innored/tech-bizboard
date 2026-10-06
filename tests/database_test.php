@@ -100,6 +100,10 @@ $revTplCols = array_map(
 expect_true(in_array('start_year_month', $revTplCols, true), '시작월');
 expect_true(in_array('end_year_month', $revTplCols, true), '종료월');
 expect_true(in_array('created_by', $revTplCols, true), '수입 템플릿 작성자');
+expect_true(in_array('billing_type', $revTplCols, true), '수입 템플릿 유/무상');
+expect_true(in_array('list_value_krw', $revTplCols, true), '수입 템플릿 정상가');
+expect_true(in_array('vat_krw', $revTplCols, true), '수입 템플릿 부가세');
+expect_true(in_array('amount_krw', $revTplCols, true), '수입 템플릿 총액');
 
 Database::reset();
 @unlink($path);

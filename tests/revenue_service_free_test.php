@@ -54,9 +54,20 @@ $nonStdVat = $rev->createOneOff([
 expect_eq((int) $nonStdVat['vat_krw'],    10000,  '비표준 부가세 보존(덮어쓰기 금지)');
 expect_eq((int) $nonStdVat['amount_krw'], 210000, '비표준 합계 보존(220000으로 덮으면 실패)');
 
+// 무상: 정상가 없이 총액(amount)만 주면 총액을 무상 가치로 환산 저장 (폼이 공급가/부가세/총액만 보냄)
+$freeAmt = $rev->createOneOff([
+    'project_name' => '무상 총액환산', 'assignee' => '루시', 'received_date' => '2026-10-05',
+    'service_category' => '기타', 'billing_type' => 'FREE',
+    'supply_krw' => 300000, 'vat_krw' => 30000, 'amount_krw' => 330000,
+]);
+expect_eq((int) $freeAmt['amount_krw'], 0, '무상 합계 0(총액환산)');
+expect_eq((int) $freeAmt['supply_krw'], 0, '무상 공급가 0(총액환산)');
+expect_eq((int) $freeAmt['list_value_krw'], 330000, '무상: 총액을 무상 가치로 환산');
+expect_eq($rev->freeValueByMonth('2026-10'), 330000, '10월 무상 제공 총액(총액환산)');
+
 // 무상 제공 총액 집계 (위에서 만든 무상/전환 건 기준)
 $rev2 = new TeamRevenueProvider($pdo, new RevenueTemplateProvider($pdo));
 expect_eq($rev2->freeValueByMonth('2026-09'), 1000000, '9월 무상 제공 총액');
-expect_eq($rev2->freeValueByYear('2026'), 1000000, '2026 무상 제공 총액');
+expect_eq($rev2->freeValueByYear('2026'), 1330000, '2026 무상 제공 총액(9월 100만 + 10월 33만)');
 
 tbb_test_done();

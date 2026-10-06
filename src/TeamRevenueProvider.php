@@ -161,15 +161,29 @@ class TeamRevenueProvider
                 if ($tid < 1 || $this->hasTemplateMonth($tid, $yearMonth)) {
                     continue;
                 }
-                $money = self::applySupply((int) ($tpl['supply_krw'] ?? 0));
+                $billing = strtoupper(trim((string) ($tpl['billing_type'] ?? 'PAID')));
+                $billing = $billing === 'FREE' ? 'FREE' : 'PAID';
+                if ($billing === 'FREE') {
+                    $money = ['supply_krw' => 0, 'vat_krw' => 0, 'amount_krw' => 0];
+                    $listValue = (int) ($tpl['list_value_krw'] ?? 0);
+                } else {
+                    $supply = (int) ($tpl['supply_krw'] ?? 0);
+                    $vat = (int) ($tpl['vat_krw'] ?? 0);
+                    $amount = (int) ($tpl['amount_krw'] ?? 0);
+                    // 템플릿에 부가세·총액이 저장돼 있으면 그대로 복사, 없으면(구버전) 공급가 기준 자동계산
+                    $money = ($vat === 0 && $amount === 0)
+                        ? self::applySupply($supply)
+                        : ['supply_krw' => $supply, 'vat_krw' => $vat, 'amount_krw' => $amount];
+                    $listValue = 0;
+                }
                 $this->insertRow([
                     'revenue_template_id' => $tid,
                     'target_year_month'   => $yearMonth,
                     'project_name'        => (string) ($tpl['project_name'] ?? ''),
                     'client_name'         => $tpl['client_name'] ?? null,
                     'service_category'    => (string) ($tpl['service_category'] ?? ''),
-                    'billing_type'        => 'PAID',
-                    'list_value_krw'      => 0,
+                    'billing_type'        => $billing,
+                    'list_value_krw'      => $listValue,
                     'supply_krw'          => $money['supply_krw'],
                     'vat_krw'             => $money['vat_krw'],
                     'amount_krw'          => $money['amount_krw'],
@@ -387,7 +401,10 @@ class TeamRevenueProvider
             throw new InvalidArgumentException('정상가는 0 이상이어야 합니다.');
         }
         if ($billing === 'FREE') {
-            // 무상: 실수입 0, 정상가만 보존
+            // 무상: 입력한 총액을 무상 제공 가치로 기록하고 실수입은 0(합계 제외)
+            if ($listValue === 0) {
+                $listValue = $money['amount_krw'];
+            }
             $money = ['supply_krw' => 0, 'vat_krw' => 0, 'amount_krw' => 0];
         } else {
             $listValue = 0; // 유상은 정상가 미사용

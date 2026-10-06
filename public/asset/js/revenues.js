@@ -26,20 +26,13 @@
   var lockHint = document.getElementById('rev-lock-hint');
   var monthLock = document.getElementById('rev-month-lock');
   var revModal = document.getElementById('rev-modal');
+  var tplModal = document.getElementById('rev-tpl-modal');
   var tplLoaded = false;
 
-  var CAL_ICON =
-    '<svg class="icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
   var TRASH_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
-  var SAVE_ICON =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M20 6 9 17l-5-5"/></svg>';
   var LOCK_ICON =
     '<svg class="rev-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -226,24 +219,9 @@
     };
   }
 
-  function periodHtml(start, end) {
-    return (
-      '<div class="input-wrap is-period">' +
-        CAL_ICON +
-        '<input class="input has-icon-left is-period" type="text" size="1" data-field="period" data-datepicker-month-range' +
-          ' autocomplete="off" placeholder="시작월 ~ 종료월" readonly value="' + escapeAttr(periodLabel(start, end)) + '" />' +
-      '</div>'
-    );
-  }
-
   function deleteBtn(action) {
     return '<button class="btn btn-outline btn-sm" type="button" data-action="' + escapeAttr(action) + '" aria-label="삭제">' +
       TRASH_ICON + '</button>';
-  }
-
-  function saveBtn(action) {
-    return '<button class="btn btn-outline btn-sm" type="button" data-action="' + escapeAttr(action) + '" aria-label="저장">' +
-      SAVE_ICON + '</button>';
   }
 
   function updateCount(body, countEl, emptyEl) {
@@ -301,7 +279,7 @@
     var supply = 0;
     if (!tplBody) return 0;
     tplBody.querySelectorAll('tr.rev-row').forEach(function (tr) {
-      supply += toInt(fieldValue(tr, 'supply_krw'));
+      supply += toInt(tr.getAttribute('data-supply') || '');
     });
     return supply;
   }
@@ -312,23 +290,6 @@
     var supply = tplSupplySum();
     setText('rev-tpl-total', fmt(supply));
     setText('rev-tpl-sum-supply', fmt(supply));
-  }
-
-  function bootWidgets(scope) {
-    if (!scope) return;
-    if (window.DesignSystem && typeof window.DesignSystem.initSelects === 'function') {
-      window.DesignSystem.initSelects(scope);
-    }
-    if (!window.TechBizBoardDatepicker) return;
-    scope.querySelectorAll('[data-datepicker]').forEach(function (el) {
-      window.TechBizBoardDatepicker.day(el);
-    });
-    scope.querySelectorAll('[data-datepicker-month]').forEach(function (el) {
-      window.TechBizBoardDatepicker.month(el);
-    });
-    scope.querySelectorAll('[data-datepicker-month-range]').forEach(function (el) {
-      window.TechBizBoardDatepicker.monthRange(el);
-    });
   }
 
   /* ── 서비스구분 레이블 ── */
@@ -353,7 +314,7 @@
     var amountKrw = Number(row.amount_krw || 0);
     var listKrw = Number(row.list_value_krw || 0);
     var moneyDisplay = billing === 'FREE'
-      ? '<span class="rev-free-label">무상(정상가 ' + fmt(listKrw) + ')</span>'
+      ? '<span class="rev-free-label">무상(총액 ' + fmt(listKrw) + ')</span>'
       : fmt(amountKrw);
     return (
       '<tr class="rev-row is-click" data-id="' + escapeAttr(id) + '"' + (id ? '' : ' data-draft="1"') +
@@ -411,19 +372,57 @@
   function tplRowHtml(row) {
     var id = row.id ? String(row.id) : '';
     var active = row.is_active === undefined ? true : Number(row.is_active) === 1;
+    var supplyKrw = Number(row.supply_krw || 0);
+    var listKrw = Number(row.list_value_krw || 0);
+    var billing = row.billing_type === 'FREE' ? 'FREE' : 'PAID';
+    var moneyDisplay = billing === 'FREE'
+      ? '<span class="rev-free-label">무상(총액 ' + fmt(listKrw) + ')</span>'
+      : fmt(supplyKrw);
     return (
-      '<tr class="rev-row" data-id="' + escapeAttr(id) + '"' + (id ? '' : ' data-draft="1"') + '>' +
-        '<td class="col-project"><input class="input" type="text" size="1" data-field="project_name" value="' + escapeAttr(row.project_name || '') + '" placeholder="프로젝트" /></td>' +
-        '<td class="col-client"><input class="input" type="text" size="1" data-field="client_name" value="' + escapeAttr(row.client_name || '') + '" placeholder="선택" /></td>' +
-        '<td class="num col-money"><input class="input num" type="text" size="1" inputmode="numeric" data-field="supply_krw" value="' + escapeAttr(row.supply_krw == null || row.supply_krw === '' ? '' : fmt(row.supply_krw)) + '" /></td>' +
-        '<td class="col-assignee"><input class="input" type="text" size="1" data-field="assignee" value="' + escapeAttr(row.assignee || '') + '" placeholder="담당" /></td>' +
+      '<tr class="rev-row is-click" data-id="' + escapeAttr(id) + '"' +
+        ' data-supply="' + escapeAttr(String(supplyKrw)) + '"' +
+        ' data-vat="' + escapeAttr(String(Number(row.vat_krw || 0))) + '"' +
+        ' data-amount="' + escapeAttr(String(Number(row.amount_krw || 0))) + '"' +
+        ' data-list-value="' + escapeAttr(String(listKrw)) + '"' +
+        ' data-service="' + escapeAttr(row.service_category || '') + '"' +
+        ' data-billing="' + escapeAttr(billing) + '"' +
+        ' data-start="' + escapeAttr(row.start_year_month || '') + '"' +
+        ' data-end="' + escapeAttr(row.end_year_month || '') + '"' +
+        ' data-active="' + (active ? '1' : '0') + '"' +
+        ' data-note="' + escapeAttr(row.note || '') + '"' +
+        ' data-created-by="' + escapeAttr(row.created_by || '') + '">' +
+        '<td class="col-project">' + escapeHtml(row.project_name || '') + '</td>' +
+        '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
+        '<td class="num col-money">' + moneyDisplay + '</td>' +
+        '<td class="col-assignee">' + escapeHtml(row.assignee || '') + '</td>' +
         '<td class="col-author"><span class="rev-author">' + escapeHtml(row.created_by || '') + '</span></td>' +
-        '<td class="col-period">' + periodHtml(row.start_year_month, row.end_year_month) + '</td>' +
-        '<td class="col-active"><label class="switch"><input type="checkbox" data-field="is_active" value="1"' + (active ? ' checked' : '') + ' /><span class="track"><span class="thumb"></span></span></label></td>' +
-        '<td class="col-note"><input class="input" type="text" size="1" data-field="note" value="' + escapeAttr(row.note || '') + '" /></td>' +
-        '<td class="col-actions">' + saveBtn('save-tpl') + deleteBtn('delete-tpl') + '</td>' +
+        '<td class="col-period">' + escapeHtml(periodLabel(row.start_year_month, row.end_year_month) || '—') + '</td>' +
+        '<td class="col-active">' + (active ? '<span class="badge badge-brand">사용</span>' : '<span class="badge badge-muted">중지</span>') + '</td>' +
+        '<td class="col-note">' + escapeHtml(row.note || '') + '</td>' +
+        '<td class="col-actions">' + deleteBtn('delete-tpl') + '</td>' +
       '</tr>'
     );
+  }
+
+  /* ── 반복 설정 행의 표시 데이터를 row 객체로 추출 ── */
+  function tplDataFromTr(tr) {
+    return {
+      id: tr.getAttribute('data-id') || '',
+      project_name: tr.querySelector('.col-project') ? tr.querySelector('.col-project').textContent.trim() : '',
+      client_name: tr.querySelector('.col-client') ? tr.querySelector('.col-client').textContent.trim() : '',
+      service_category: tr.getAttribute('data-service') || '',
+      billing_type: tr.getAttribute('data-billing') === 'FREE' ? 'FREE' : 'PAID',
+      supply_krw: toInt(tr.getAttribute('data-supply') || ''),
+      vat_krw: toInt(tr.getAttribute('data-vat') || ''),
+      amount_krw: toInt(tr.getAttribute('data-amount') || ''),
+      list_value_krw: toInt(tr.getAttribute('data-list-value') || ''),
+      assignee: tr.querySelector('.col-assignee') ? tr.querySelector('.col-assignee').textContent.trim() : '',
+      start_year_month: tr.getAttribute('data-start') || '',
+      end_year_month: tr.getAttribute('data-end') || '',
+      is_active: tr.getAttribute('data-active') === '0' ? 0 : 1,
+      note: tr.getAttribute('data-note') || '',
+      created_by: tr.getAttribute('data-created-by') || ''
+    };
   }
 
   function compactWon(n) {
@@ -576,91 +575,183 @@
   function renderTpl(rows) {
     if (!tplBody) return;
     tplBody.innerHTML = rows.map(tplRowHtml).join('');
-    bootWidgets(tplBody);
     updateTplSummary();
   }
 
-  function fieldValue(tr, name) {
-    var el = tr.querySelector('[data-field="' + name + '"]');
-    if (!el) return '';
-    if (el.type === 'checkbox') return el.checked ? '1' : '0';
-    return el.value;
+  function upsertTplRow(row) {
+    if (!tplBody) return;
+    var existing = tplBody.querySelector('tr.rev-row[data-id="' + escapeAttr(String(row.id)) + '"]');
+    var html = tplRowHtml(row);
+    if (existing) {
+      var tmp = document.createElement('tbody');
+      tmp.innerHTML = html;
+      var newTr = tmp.querySelector('tr');
+      if (newTr) existing.replaceWith(newTr);
+    } else {
+      tplBody.insertAdjacentHTML('afterbegin', html);
+    }
+    updateTplSummary();
   }
 
-  function tplReady(tr) {
-    return fieldValue(tr, 'project_name').trim() && fieldValue(tr, 'assignee').trim();
+  /* ── 반복 설정 모달 열기 / 닫기 / 저장 ── */
+  function openTplModal(rowData) {
+    if (!tplModal) return;
+    var isNew = !rowData || !rowData.id;
+    var titleEl = document.getElementById('rev-t-title');
+    if (titleEl) titleEl.textContent = isNew ? '반복 설정 등록' : '반복 설정 편집';
+    tplModal.dataset.editId = isNew ? '' : String(rowData.id);
+
+    var project = document.getElementById('rev-t-project_name');
+    var client = document.getElementById('rev-t-client_name');
+    var supply = document.getElementById('rev-t-supply_krw');
+    var vat = document.getElementById('rev-t-vat_krw');
+    var amount = document.getElementById('rev-t-amount_krw');
+    var assignee = document.getElementById('rev-t-assignee');
+    var period = document.getElementById('rev-t-period');
+    var active = document.getElementById('rev-t-is_active');
+    var note = document.getElementById('rev-t-note');
+
+    var billing = (rowData && rowData.billing_type) ? rowData.billing_type : 'PAID';
+    var svcCat = (rowData && rowData.service_category) ? rowData.service_category : '';
+
+    var now = new Date();
+    var defStart = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+    /* 금액: 무상은 총액 칸에 무상 가치(list_value)를 보여주고, 레거시 유상 템플릿(총액 0)은 공급가로 자동 채운다 */
+    var sVal = (!isNew && rowData.supply_krw) ? Number(rowData.supply_krw) : 0;
+    var vVal = (!isNew && rowData.vat_krw) ? Number(rowData.vat_krw) : 0;
+    var aVal = (!isNew && rowData.amount_krw) ? Number(rowData.amount_krw) : 0;
+    if (billing === 'FREE') {
+      aVal = (!isNew && rowData.list_value_krw) ? Number(rowData.list_value_krw) : 0;
+      sVal = 0;
+      vVal = 0;
+    } else if (sVal && !aVal) {
+      vVal = Math.round(sVal * 0.1);
+      aVal = sVal + vVal;
+    }
+
+    if (project) project.value = isNew ? '' : (rowData.project_name || '');
+    if (client) client.value = isNew ? '' : (rowData.client_name || '');
+    if (supply) supply.value = sVal ? fmt(sVal) : '';
+    if (vat) vat.value = vVal ? fmt(vVal) : '';
+    if (amount) amount.value = aVal ? fmt(aVal) : '';
+    if (assignee) assignee.value = isNew ? '' : (rowData.assignee || '');
+    if (period) period.value = isNew ? defStart : periodLabel(rowData.start_year_month, rowData.end_year_month);
+    if (active) active.checked = isNew ? true : Number(rowData.is_active) === 1;
+    if (note) note.value = isNew ? '' : (rowData.note || '');
+
+    /* 서비스구분 */
+    setSelectValue('rev-t-service_category-wrap', 'rev-t-service_category', svcCat, svcCat || '선택');
+    /* 유상/무상 */
+    setSelectValue('rev-t-billing_type-wrap', 'rev-t-billing_type', billing, billing === 'FREE' ? '무상' : '유상');
+
+    tplModal.hidden = false;
+    document.body.classList.add('rev-modal-open');
+
+    if (window.TechBizBoardDatepicker && period) {
+      window.TechBizBoardDatepicker.monthRange(period);
+    }
+    if (window.DesignSystem && typeof window.DesignSystem.initSelects === 'function') {
+      window.DesignSystem.initSelects(tplModal);
+    }
+    if (project) project.focus();
   }
 
-  function tplPayload(tr) {
-    var period = parsePeriod(fieldValue(tr, 'period'));
-    return {
-      id: tr.getAttribute('data-id') || '',
-      project_name: fieldValue(tr, 'project_name').trim(),
-      client_name: fieldValue(tr, 'client_name').trim(),
-      assignee: fieldValue(tr, 'assignee').trim(),
-      start_year_month: period.start,
-      end_year_month: period.end,
-      supply_krw: toInt(fieldValue(tr, 'supply_krw')),
-      note: fieldValue(tr, 'note').trim(),
-      is_active: fieldValue(tr, 'is_active') === '1' ? 1 : 0
-    };
+  /* 금액 자동계산: 공급가 입력 → 부가세(10%)·총액, 부가세 입력 → 총액. 총액은 수동 override */
+  function recalcMoney(prefix, changed) {
+    var sEl = document.getElementById(prefix + '-supply_krw');
+    var vEl = document.getElementById(prefix + '-vat_krw');
+    var aEl = document.getElementById(prefix + '-amount_krw');
+    if (!sEl || !vEl || !aEl) return;
+    var supply = toInt(sEl.value);
+    if (changed === 'supply') {
+      var vat = Math.round(supply * 0.1);
+      vEl.value = supply ? fmt(vat) : '';
+      aEl.value = supply ? fmt(supply + vat) : '';
+    } else if (changed === 'vat') {
+      aEl.value = fmt(supply + toInt(vEl.value));
+    }
   }
 
-  function markInvalid(tr, on) {
-    tr.classList.toggle('is-invalid', !!on);
+  function closeTplModal() {
+    if (!tplModal) return;
+    tplModal.hidden = true;
+    document.body.classList.remove('rev-modal-open');
   }
 
-  function saveTplRow(tr) {
-    if (tr._saving) return;
-    if (!tplReady(tr)) {
-      markInvalid(tr, true);
-      toast('저장 안 됨', '프로젝트와 담당을 적어 주세요.', 'danger');
+  function saveTplModal() {
+    if (!tplModal) return;
+    var editId = tplModal.dataset.editId || '';
+    var isNew = !editId;
+
+    var project_name = ((document.getElementById('rev-t-project_name') || {}).value || '').trim();
+    var client_name = ((document.getElementById('rev-t-client_name') || {}).value || '').trim();
+    var service_category = (document.getElementById('rev-t-service_category') || {}).value || '';
+    var billing_type = (document.getElementById('rev-t-billing_type') || {}).value || 'PAID';
+    var supply_krw = toInt((document.getElementById('rev-t-supply_krw') || {}).value || '');
+    var vat_krw = toInt((document.getElementById('rev-t-vat_krw') || {}).value || '');
+    var amount_krw = toInt((document.getElementById('rev-t-amount_krw') || {}).value || '');
+    var assignee = ((document.getElementById('rev-t-assignee') || {}).value || '').trim();
+    var period = parsePeriod((document.getElementById('rev-t-period') || {}).value || '');
+    var activeEl = document.getElementById('rev-t-is_active');
+    var is_active = (activeEl && activeEl.checked) ? 1 : 0;
+    var note = ((document.getElementById('rev-t-note') || {}).value || '').trim();
+
+    if (!period.start || !project_name || !client_name || !service_category || !assignee) {
+      toast('저장 안 됨', '메모를 제외한 모든 항목을 입력해 주세요.', 'danger');
       return;
     }
-    markInvalid(tr, false);
-    var payload = tplPayload(tr);
-    var isNew = !payload.id;
-    payload.action = isNew ? 'create' : 'update';
-    var supplyEl = tr.querySelector('[data-field="supply_krw"]');
-    if (supplyEl) supplyEl.value = fmt(payload.supply_krw);
-    tr._saving = true;
+    if (billing_type !== 'FREE' && amount_krw <= 0) {
+      toast('저장 안 됨', '총액을 입력해 주세요.', 'danger');
+      return;
+    }
+
+    var payload = {
+      action: isNew ? 'create' : 'update',
+      id: editId,
+      project_name: project_name,
+      client_name: client_name,
+      service_category: service_category,
+      billing_type: billing_type,
+      assignee: assignee,
+      start_year_month: period.start,
+      end_year_month: period.end,
+      supply_krw: supply_krw,
+      vat_krw: vat_krw,
+      amount_krw: amount_krw,
+      note: note,
+      is_active: is_active
+    };
+
+    var saveBtnEl = document.getElementById('rev-t-save');
+    if (saveBtnEl) saveBtnEl.disabled = true;
+
     post(tplApi, payload)
       .then(function (data) {
-        if (!payload.id && data.row && data.row.id) {
-          tr.removeAttribute('data-draft');
-          tr.setAttribute('data-id', String(data.row.id));
-          if (data.row.created_by) tr.setAttribute('data-created-by', data.row.created_by);
-          var author = tr.querySelector('.rev-author');
-          if (author && data.row.created_by) author.textContent = data.row.created_by;
-        }
-        updateTplSummary();
+        var savedRow = data.row || {};
+        if (!savedRow.project_name) savedRow.project_name = project_name;
+        savedRow.client_name = savedRow.client_name != null ? savedRow.client_name : client_name;
+        savedRow.service_category = savedRow.service_category || service_category;
+        savedRow.billing_type = savedRow.billing_type || billing_type;
+        if (!savedRow.assignee) savedRow.assignee = assignee;
+        if (savedRow.supply_krw == null) savedRow.supply_krw = supply_krw;
+        if (savedRow.vat_krw == null) savedRow.vat_krw = vat_krw;
+        if (savedRow.amount_krw == null) savedRow.amount_krw = amount_krw;
+        if (savedRow.list_value_krw == null) savedRow.list_value_krw = (billing_type === 'FREE' ? amount_krw : 0);
+        savedRow.start_year_month = savedRow.start_year_month || period.start;
+        savedRow.end_year_month = savedRow.end_year_month != null ? savedRow.end_year_month : period.end;
+        if (savedRow.is_active == null) savedRow.is_active = is_active;
+        savedRow.note = savedRow.note != null ? savedRow.note : note;
+        upsertTplRow(savedRow);
         toast('저장됨', '반복 설정을 저장했습니다.', 'success');
+        closeTplModal();
       })
       .catch(function (err) {
         toast('저장 실패', err.message, 'danger');
-        markInvalid(tr, true);
       })
       .finally(function () {
-        tr._saving = false;
+        if (saveBtnEl) saveBtnEl.disabled = false;
       });
-  }
-
-  function addTplRow() {
-    if (!tplBody) return;
-    var now = new Date();
-    var start = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    tplBody.insertAdjacentHTML('afterbegin', tplRowHtml({
-      start_year_month: start,
-      is_active: 1,
-      supply_krw: ''
-    }));
-    var first = tplBody.querySelector('tr');
-    if (first) bootWidgets(first);
-    updateTplSummary();
-    if (first) {
-      var name = first.querySelector('[data-field="project_name"]');
-      if (name) name.focus();
-    }
   }
 
   /* ════════════════════════════════════════
@@ -683,18 +774,6 @@
     });
   }
 
-  function applyBillingVisibility(billing) {
-    var supplyField = modalEl('rev-m-supply-field');
-    var listField = modalEl('rev-m-list-field');
-    if (billing === 'FREE') {
-      if (supplyField) supplyField.hidden = true;
-      if (listField) listField.hidden = false;
-    } else {
-      if (supplyField) supplyField.hidden = false;
-      if (listField) listField.hidden = true;
-    }
-  }
-
   function openRevModal(rowData) {
     if (!revModal) return;
 
@@ -710,7 +789,8 @@
     var project_name = modalEl('rev-m-project_name');
     var client_name = modalEl('rev-m-client_name');
     var supply_krw = modalEl('rev-m-supply_krw');
-    var list_value_krw = modalEl('rev-m-list_value_krw');
+    var vat_krw = modalEl('rev-m-vat_krw');
+    var amount_krw = modalEl('rev-m-amount_krw');
     var assignee = modalEl('rev-m-assignee');
     var note = modalEl('rev-m-note');
 
@@ -718,11 +798,25 @@
     var status = (rowData && rowData.status) ? rowData.status : 'COMPLETED';
     var svcCat = (rowData && rowData.service_category) ? rowData.service_category : '';
 
+    /* 금액: 무상은 총액 칸에 무상 가치(list_value)를 보여주고, 레거시 유상행(총액 0)은 공급가로 자동 채운다 */
+    var sVal = (!isNew && rowData.supply_krw) ? Number(rowData.supply_krw) : 0;
+    var vVal = (!isNew && rowData.vat_krw) ? Number(rowData.vat_krw) : 0;
+    var aVal = (!isNew && rowData.amount_krw) ? Number(rowData.amount_krw) : 0;
+    if (billing === 'FREE') {
+      aVal = (!isNew && rowData.list_value_krw) ? Number(rowData.list_value_krw) : 0;
+      sVal = 0;
+      vVal = 0;
+    } else if (sVal && !aVal) {
+      vVal = Math.round(sVal * 0.1);
+      aVal = sVal + vVal;
+    }
+
     if (received_date) received_date.value = isNew ? '' : (rowData.received_date || '');
     if (project_name) project_name.value = isNew ? '' : (rowData.project_name || '');
     if (client_name) client_name.value = isNew ? '' : (rowData.client_name || '');
-    if (supply_krw) supply_krw.value = isNew ? '' : (rowData.supply_krw ? fmt(rowData.supply_krw) : '');
-    if (list_value_krw) list_value_krw.value = isNew ? '' : (rowData.list_value_krw ? fmt(rowData.list_value_krw) : '');
+    if (supply_krw) supply_krw.value = sVal ? fmt(sVal) : '';
+    if (vat_krw) vat_krw.value = vVal ? fmt(vVal) : '';
+    if (amount_krw) amount_krw.value = aVal ? fmt(aVal) : '';
     if (assignee) assignee.value = isNew ? '' : (rowData.assignee || '');
     if (note) note.value = isNew ? '' : (rowData.note || '');
 
@@ -735,9 +829,6 @@
 
     /* 상태 */
     setSelectValue('rev-m-status-wrap', 'rev-m-status', status, status === 'PENDING' ? '미확인' : '완료');
-
-    /* 공급가/정상가 가시성 */
-    applyBillingVisibility(billing);
 
     /* 증빙 섹션 초기화 */
     var receipts = modalEl('rev-m-receipts');
@@ -810,22 +901,20 @@
     var service_category = (modalEl('rev-m-service_category') || {}).value || '';
     var billing_type = (modalEl('rev-m-billing_type') || {}).value || 'PAID';
     var supply_krw = toInt((modalEl('rev-m-supply_krw') || {}).value || '');
-    var list_value_krw = toInt((modalEl('rev-m-list_value_krw') || {}).value || '');
+    var vat_krw = toInt((modalEl('rev-m-vat_krw') || {}).value || '');
+    var amount_krw = toInt((modalEl('rev-m-amount_krw') || {}).value || '');
     var assignee = ((modalEl('rev-m-assignee') || {}).value || '').trim();
     var status = (modalEl('rev-m-status') || {}).value || 'COMPLETED';
     var note = ((modalEl('rev-m-note') || {}).value || '').trim();
 
-    if (!project_name || !received_date || !assignee) {
-      toast('저장 안 됨', '프로젝트, 입금일, 담당을 입력해 주세요.', 'danger');
+    if (!received_date || !project_name || !client_name || !service_category || !assignee) {
+      toast('저장 안 됨', '메모를 제외한 모든 항목을 입력해 주세요.', 'danger');
       return;
     }
-    if (billing_type !== 'FREE' && supply_krw === 0) {
-      toast('저장 안 됨', '공급가를 입력해 주세요.', 'danger');
+    if (billing_type !== 'FREE' && amount_krw <= 0) {
+      toast('저장 안 됨', '총액을 입력해 주세요.', 'danger');
       return;
     }
-
-    var vat_krw = billing_type === 'FREE' ? 0 : Math.round(supply_krw * 0.1);
-    var amount_krw = billing_type === 'FREE' ? 0 : (supply_krw + vat_krw);
 
     var payload = {
       action: isNew ? 'create' : 'update',
@@ -836,7 +925,6 @@
       service_category: service_category,
       billing_type: billing_type,
       supply_krw: supply_krw,
-      list_value_krw: list_value_krw,
       vat_krw: vat_krw,
       amount_krw: amount_krw,
       assignee: assignee,
@@ -857,9 +945,10 @@
         savedRow.service_category = savedRow.service_category || service_category;
         savedRow.billing_type = savedRow.billing_type || billing_type;
         if (savedRow.supply_krw == null) savedRow.supply_krw = supply_krw;
-        if (savedRow.list_value_krw == null) savedRow.list_value_krw = list_value_krw;
         if (savedRow.vat_krw == null) savedRow.vat_krw = vat_krw;
         if (savedRow.amount_krw == null) savedRow.amount_krw = amount_krw;
+        // 무상 가치(list_value_krw)는 서버가 총액에서 환산해 돌려준다.
+        if (savedRow.list_value_krw == null) savedRow.list_value_krw = (billing_type === 'FREE' ? amount_krw : 0);
         if (!savedRow.assignee) savedRow.assignee = assignee;
         savedRow.status = savedRow.status || status;
         savedRow.note = savedRow.note != null ? savedRow.note : note;
@@ -1186,13 +1275,7 @@
     }
     var addTpl = e.target.closest('[data-action="add-tpl"]');
     if (addTpl) {
-      addTplRow();
-      return;
-    }
-    var saveTpl = e.target.closest('[data-action="save-tpl"]');
-    if (saveTpl) {
-      var saveRow = saveTpl.closest('tr.rev-row');
-      if (saveRow) saveTplRow(saveRow);
+      openTplModal(null);
       return;
     }
     var del = e.target.closest('[data-action="delete-row"]');
@@ -1247,6 +1330,12 @@
       openRevModal(rowDataFromTr(revRowClick));
       return;
     }
+    /* 반복 설정 행 클릭 → 반복 모달 열기 */
+    if (revRowClick && tplBody && tplBody.contains(revRowClick)) {
+      if (e.target.closest('[data-action="delete-tpl"]')) return;
+      openTplModal(tplDataFromTr(revRowClick));
+      return;
+    }
   });
 
   /* 모달 버튼 이벤트 */
@@ -1259,46 +1348,51 @@
       saveRevModal();
       return;
     }
+    if (e.target.closest('[data-action="close-tpl-modal"]')) {
+      closeTplModal();
+      return;
+    }
+    if (e.target.closest('#rev-t-save')) {
+      saveTplModal();
+      return;
+    }
     /* 백드롭 클릭 닫기 */
     if (revModal && !revModal.hidden && e.target === revModal) {
       closeRevModal();
     }
+    if (tplModal && !tplModal.hidden && e.target === tplModal) {
+      closeTplModal();
+    }
   });
 
-  /* 모달 내 유상/무상 select 실시간 토글 */
-  document.addEventListener('select:change', function (e) {
-    if (!revModal || revModal.hidden) return;
-    if (!e.target.closest('#rev-m-billing_type-wrap')) return;
-    var billing = (modalEl('rev-m-billing_type') || {}).value || 'PAID';
-    applyBillingVisibility(billing);
+  /* 금액 칸 입력 시 자동계산 */
+  document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (!el || typeof el.getAttribute !== 'function') return;
+    var kind = el.getAttribute('data-money');
+    if (!kind) return;
+    if (revModal && !revModal.hidden && revModal.contains(el)) {
+      recalcMoney('rev-m', kind);
+    } else if (tplModal && !tplModal.hidden && tplModal.contains(el)) {
+      recalcMoney('rev-t', kind);
+    }
+  });
+
+  /* 금액 칸 포커스아웃 시 천단위 콤마로 정리 */
+  document.addEventListener('focusout', function (e) {
+    var el = e.target;
+    if (!el || typeof el.getAttribute !== 'function') return;
+    if (!el.getAttribute('data-money')) return;
+    var inModal = (revModal && !revModal.hidden && revModal.contains(el)) ||
+                  (tplModal && !tplModal.hidden && tplModal.contains(el));
+    if (!inModal) return;
+    el.value = String(el.value).trim() ? fmt(toInt(el.value)) : '';
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && revModal && !revModal.hidden) {
-      closeRevModal();
-    }
-  });
-
-  root.addEventListener('focusout', function (e) {
-    var tr = e.target.closest('tr.rev-row');
-    if (!tr) return;
-    if (tplBody && tplBody.contains(tr) && e.target.getAttribute('data-field') === 'supply_krw') {
-      e.target.value = fmt(toInt(e.target.value));
-      updateTplSummary();
-    }
-  });
-
-  root.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    var tr = e.target.closest('tr.rev-row');
-    if (!tr) return;
-    if (e.target.tagName === 'TEXTAREA') return;
-    if (e.target.hasAttribute('data-datepicker') || e.target.hasAttribute('data-datepicker-month') || e.target.hasAttribute('data-datepicker-month-range')) return;
-    if (tplBody && tplBody.contains(tr) && e.target.getAttribute('data-field') === 'supply_krw') {
-      e.preventDefault();
-      e.target.value = fmt(toInt(e.target.value));
-      updateTplSummary();
-    }
+    if (e.key !== 'Escape') return;
+    if (revModal && !revModal.hidden) closeRevModal();
+    if (tplModal && !tplModal.hidden) closeTplModal();
   });
 
   root.addEventListener('select:change', function (e) {

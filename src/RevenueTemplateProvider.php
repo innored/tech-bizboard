@@ -78,10 +78,10 @@ class RevenueTemplateProvider
         $row['created_by'] = $this->createdBy;
         $stmt = $this->pdo->prepare(
             'INSERT INTO tb_revenue_templates (
-                project_name, client_name, service_category, supply_krw, assignee,
+                project_name, client_name, service_category, billing_type, supply_krw, vat_krw, amount_krw, list_value_krw, assignee,
                 start_year_month, end_year_month, note, is_active, created_by, created_at
             ) VALUES (
-                :project_name, :client_name, :service_category, :supply_krw, :assignee,
+                :project_name, :client_name, :service_category, :billing_type, :supply_krw, :vat_krw, :amount_krw, :list_value_krw, :assignee,
                 :start_year_month, :end_year_month, :note, :is_active, :created_by, :created_at
             )'
         );
@@ -96,15 +96,25 @@ class RevenueTemplateProvider
      */
     public function update(int $id, array $data): array
     {
-        $this->requireId($id);
+        $existing = $this->requireId($id);
         $row = $this->normalize($data);
+        // 반복 사용(1) → 해제(0) 전환 시 중지 일시를 메모에 남긴다.
+        if ((int) ($existing['is_active'] ?? 1) === 1 && $row['is_active'] === 0) {
+            $stamp = '[반복 중지 ' . substr(Database::nowKst(), 0, 16) . ']';
+            $note = (string) ($row['note'] ?? '');
+            $row['note'] = $note === '' ? $stamp : ($note . "\n" . $stamp);
+        }
         $row['id'] = $id;
         $stmt = $this->pdo->prepare(
             'UPDATE tb_revenue_templates
              SET project_name = :project_name,
                  client_name = :client_name,
                  service_category = :service_category,
+                 billing_type = :billing_type,
                  supply_krw = :supply_krw,
+                 vat_krw = :vat_krw,
+                 amount_krw = :amount_krw,
+                 list_value_krw = :list_value_krw,
                  assignee = :assignee,
                  start_year_month = :start_year_month,
                  end_year_month = :end_year_month,
@@ -167,8 +177,10 @@ class RevenueTemplateProvider
             throw new InvalidArgumentException('종료월이 시작월보다 앞입니다.');
         }
         $supply = (int) ($data['supply_krw'] ?? 0);
-        if ($supply < 0) {
-            throw new InvalidArgumentException('공급가는 0 이상이어야 합니다.');
+        $vat = (int) ($data['vat_krw'] ?? 0);
+        $amount = (int) ($data['amount_krw'] ?? 0);
+        if ($supply < 0 || $vat < 0 || $amount < 0) {
+            throw new InvalidArgumentException('금액은 0 이상이어야 합니다.');
         }
         $client = trim((string) ($data['client_name'] ?? ''));
         $note = trim((string) ($data['note'] ?? ''));
@@ -178,11 +190,41 @@ class RevenueTemplateProvider
             throw new InvalidArgumentException('서비스 구분 값이 올바르지 않습니다.');
         }
 
+        $billing = strtoupper(trim((string) ($data['billing_type'] ?? 'PAID')));
+        if ($billing !== 'PAID' && $billing !== 'FREE') {
+            throw new InvalidArgumentException('유상/무상 값이 올바르지 않습니다.');
+        }
+        $listValue = (int) ($data['list_value_krw'] ?? 0);
+        if ($listValue < 0) {
+            throw new InvalidArgumentException('정상가는 0 이상이어야 합니다.');
+        }
+        if ($billing === 'FREE') {
+            // 무상: 입력한 총액을 무상 제공 가치(정상가)로 기록하고 공급가·부가세·총액은 0
+            if ($listValue === 0) {
+                $listValue = $amount;
+            }
+            $supply = 0;
+            $vat = 0;
+            $amount = 0;
+        } else {
+            $listValue = 0;    // 유상: 정상가 미사용
+            // 부가세·총액을 둘 다 넘기지 않았으면 공급가에서 자동 계산(구 API 호환)
+            if (!isset($data['vat_krw']) && !isset($data['amount_krw'])) {
+                $auto = TeamRevenueProvider::applySupply($supply);
+                $vat = $auto['vat_krw'];
+                $amount = $auto['amount_krw'];
+            }
+        }
+
         return [
             'project_name'     => $name,
             'client_name'      => $client === '' ? null : $client,
             'service_category' => $category,
+            'billing_type'     => $billing,
             'supply_krw'       => $supply,
+            'vat_krw'          => $vat,
+            'amount_krw'       => $amount,
+            'list_value_krw'   => $listValue,
             'assignee'         => $assignee,
             'start_year_month' => $start,
             'end_year_month'   => $end,

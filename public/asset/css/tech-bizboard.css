@@ -1308,13 +1308,30 @@ html, body, input, button, select, textarea {
   width: 44px;
   min-width: 44px;
 }
-.rev-page #rev-tpl-table .col-period .input-wrap,
-.rev-page #rev-tpl-table .col-period .input.has-icon-left.is-period {
-  width: calc(17ch + 36px);
+/* 반복 설정 표: 기본 수입 목록과 동일한 읽기전용·클릭편집 처리 */
+.rev-page #rev-tpl-table th,
+.rev-page #rev-tpl-table td {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.rev-page #rev-tpl-table .col-project {
+  width: auto;
+  max-width: 300px;
+  white-space: normal;
+}
+.rev-page #rev-tpl-table .col-client {
+  width: auto;
+  min-width: 120px;
+  white-space: nowrap;
 }
 .rev-page #rev-tpl-table .col-active {
-  width: 56px;
-  min-width: 56px;
+  width: 1%;
+  white-space: nowrap;
+}
+.rev-page #rev-tpl-table .col-author { display: none; }
+.rev-page #rev-tpl-table .col-actions {
+  width: 44px;
+  min-width: 44px;
 }
 .rev-page .table .select { width: 88px; }
 .rev-page .table .select-trigger {
@@ -2296,11 +2313,15 @@ body.rev-viewer-open { overflow: hidden; }
 body.rev-modal-open { overflow: hidden; }
 
 /* 행 클릭 커서 */
-.rev-page #rev-list-table tbody tr.rev-row.is-click { cursor: pointer; transition: background .12s; }
-.rev-page #rev-list-table tbody tr.rev-row.is-click:hover td { background: var(--brand-subtle); }
+.rev-page #rev-list-table tbody tr.rev-row.is-click,
+.rev-page #rev-tpl-table tbody tr.rev-row.is-click { cursor: pointer; transition: background .12s; }
+.rev-page #rev-list-table tbody tr.rev-row.is-click:hover td,
+.rev-page #rev-tpl-table tbody tr.rev-row.is-click:hover td { background: var(--brand-subtle); }
 /* 클릭(수정) 가능함을 강조: hover 시 왼쪽 액센트 바 + 프로젝트명 밑줄 */
-.rev-page #rev-list-table tbody tr.rev-row.is-click:hover td:first-child { box-shadow: inset 3px 0 0 var(--brand-600); }
-.rev-page #rev-list-table tbody tr.rev-row.is-click:hover .col-project { text-decoration: underline; text-underline-offset: 2px; }
+.rev-page #rev-list-table tbody tr.rev-row.is-click:hover td:first-child,
+.rev-page #rev-tpl-table tbody tr.rev-row.is-click:hover td:first-child { box-shadow: inset 3px 0 0 var(--brand-600); }
+.rev-page #rev-list-table tbody tr.rev-row.is-click:hover .col-project,
+.rev-page #rev-tpl-table tbody tr.rev-row.is-click:hover .col-project { text-decoration: underline; text-underline-offset: 2px; }
 
 @media (max-width: 540px) {
   .rev-modal-grid { grid-template-columns: 1fr; }

@@ -305,6 +305,20 @@ class Database
              SET supply_krw = amount_krw
              WHERE supply_krw = 0 AND vat_krw = 0 AND amount_krw <> 0"
         );
+
+        // 반복 템플릿 유/무상·정상가·부가세·총액 (수입 등록 모달과 입력 통일)
+        if (self::hasTable($pdo, 'tb_revenue_templates')) {
+            self::ensureColumn(
+                $pdo,
+                'tb_revenue_templates',
+                'billing_type',
+                $driver === 'mysql' ? "VARCHAR(10) NOT NULL DEFAULT 'PAID'" : "TEXT NOT NULL DEFAULT 'PAID'"
+            );
+            $intDef = $driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0';
+            self::ensureColumn($pdo, 'tb_revenue_templates', 'vat_krw', $intDef);
+            self::ensureColumn($pdo, 'tb_revenue_templates', 'amount_krw', $intDef);
+            self::ensureColumn($pdo, 'tb_revenue_templates', 'list_value_krw', $intDef);
+        }
     }
 
     private static function hasTable(PDO $pdo, string $table): bool
