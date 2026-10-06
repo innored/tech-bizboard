@@ -546,9 +546,6 @@
     setText('rev-year-total', fmt(total));
     setText('rev-year-count', '총 ' + count + '건');
     setText('rev-year-free', fmt(freeValueYear || 0));
-    var yfCell = document.getElementById('rev-year-free');
-    yfCell = yfCell ? yfCell.closest('.rev-year-kpi') : null;
-    if (yfCell) yfCell.hidden = !(Number(freeValueYear) > 0);
     return buckets;
   }
 
@@ -566,8 +563,6 @@
     listBody.innerHTML = (rows || []).map(function (row) { return listRowHtml(row); }).join('');
     updateListSummary();
     setText('rev-sum-free', fmt(freeValueMonth || 0));
-    var mfWrap = document.getElementById('rev-sum-free-wrap');
-    if (mfWrap) mfWrap.hidden = !(Number(freeValueMonth) > 0);
   }
 
   function refreshYearIndex() {

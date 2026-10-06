@@ -81,7 +81,7 @@ require __DIR__ . '/_header.php';
               <strong class="rev-year-kpi-amt"><span id="rev-year-total">0</span><span class="unit">원</span></strong>
               <span class="rev-year-kpi-n" id="rev-year-count">총 0건</span>
             </article>
-            <article class="rev-year-kpi" hidden>
+            <article class="rev-year-kpi">
               <span class="rev-year-kpi-label">무상 제공</span>
               <strong class="rev-year-kpi-amt"><span id="rev-year-free">0</span><span class="unit">원</span></strong>
             </article>
@@ -97,7 +97,7 @@ require __DIR__ . '/_header.php';
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
               </span>
               <div class="rev-card-meta">
-                <span class="text-sm text-faint" id="rev-sum-free-wrap" hidden>무상 <strong id="rev-sum-free">0</strong>원</span>
+                <span class="text-sm text-faint" id="rev-sum-free-wrap">무상 <strong id="rev-sum-free">0</strong>원</span>
                 <span class="text-sm text-faint" id="rev-list-count">총 0건</span>
                 <button
                   class="btn btn-primary btn-sm"
