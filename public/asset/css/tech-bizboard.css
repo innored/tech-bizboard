@@ -1011,8 +1011,9 @@ html, body, input, button, select, textarea {
   gap: 10px;
   margin: 0 0 14px;
 }
-/* 유상 블록: 합계(좌, 큰 숫자) · 공급가·부가세(우, 작게) 가로 배치 → height 절약 */
-.rev-year-paid {
+/* 유상 블록: 합계(좌, 큰 숫자) · 공급가·부가세(우, 작게) 가로 배치 → height 절약
+   (.rev-year-kpi.rev-year-paid 로 specificity를 올려 뒤의 .rev-year-kpi column 규칙을 이긴다) */
+.rev-year-kpi.rev-year-paid {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
