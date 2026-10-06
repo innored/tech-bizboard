@@ -195,7 +195,7 @@ require __DIR__ . '/_header.php';
             <ul class="dash-kpi-pop-list" data-kpi-list="exp"></ul>
           </div>
         </div>
-        <div class="dash-kpi-cell is-inline">
+        <div class="dash-kpi-cell is-inline"<?= $yearFreeValue > 0 ? '' : ' hidden' ?>>
           <p class="dash-kpi-label">무상 제공(연)<button type="button" class="dash-kpi-info tooltip tooltip-bottom" data-tooltip="billing_type=FREE인 수입의 정상가(list_value_krw) 합계" aria-label="무상 제공 총액 설명"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button></p>
           <p class="dash-kpi-num" data-dash="year-free-value"><?= h($fmtWon($yearFreeValue)) ?><span class="unit">원</span></p>
         </div>

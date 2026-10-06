@@ -202,6 +202,10 @@
     setText('dash-year-label', String(data.year) + '년');
     setText('dash-prev-label', monthLabel(p.ym));
     setMoney('year-free-value', data.year_free_value);
+    // 무상 제공이 0이면 셀을 숨긴다.
+    var freeNum = root.querySelector('[data-dash="year-free-value"]');
+    var freeCell = freeNum ? freeNum.closest('.dash-kpi-cell') : null;
+    if (freeCell) freeCell.hidden = !(Number(data.year_free_value) > 0);
   }
 
   function applyQuarter() {
