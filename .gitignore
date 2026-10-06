@@ -16,6 +16,12 @@ storage/cache/*
 storage/receipts/*
 !storage/receipts/.htaccess
 
+
+
+
+!storage/revenue-receipts
+
+
 .superpowers/
 docs/superpowers
 
