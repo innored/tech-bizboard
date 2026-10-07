@@ -113,8 +113,141 @@ class DashboardProvider
             'revenue_breakdown'   => $this->breakdownRevenues($year),
             'revenue_project_breakdown' => $this->breakdownRevenueProjects($year),
             'year_free_value'     => $yearFreeValue,
+            'analytics'           => $this->revenueAnalytics($year),
             'series'              => $series,
         ];
+    }
+
+    /**
+     * 매출 구성 분석(연 단위). 유상 매출은 amount_krw, 무상은 건수+정상가(list_value_krw) 기준.
+     *
+     * @return array<string, mixed>
+     */
+    public function revenueAnalytics(int $year): array
+    {
+        $like = sprintf('%04d-', $year) . '%';
+
+        $b = $this->analyticsRow(
+            "SELECT
+                SUM(CASE WHEN billing_type='FREE' THEN 0 ELSE 1 END) AS paid_count,
+                COALESCE(SUM(CASE WHEN billing_type='FREE' THEN 0 ELSE amount_krw END),0) AS paid_amount,
+                SUM(CASE WHEN billing_type='FREE' THEN 1 ELSE 0 END) AS free_count,
+                COALESCE(SUM(CASE WHEN billing_type='FREE' THEN list_value_krw ELSE 0 END),0) AS free_value
+             FROM tb_team_revenues WHERE target_year_month LIKE :like",
+            $like
+        );
+        $billing = [
+            'paid_count'  => (int) ($b['paid_count'] ?? 0),
+            'paid_amount' => (int) ($b['paid_amount'] ?? 0),
+            'free_count'  => (int) ($b['free_count'] ?? 0),
+            'free_value'  => (int) ($b['free_value'] ?? 0),
+        ];
+
+        $serviceCategories = $this->analyticsGroupStats(
+            "CASE WHEN service_category IS NULL OR service_category='' THEN '미지정' ELSE service_category END",
+            $like
+        );
+        $solutions = $this->analyticsGroupStats(
+            "CASE WHEN solution_name IS NULL OR solution_name='' THEN '솔루션 미지정' ELSE solution_name END",
+            $like,
+            "AND service_category = '솔루션'",
+            10
+        );
+
+        return [
+            'billing'              => $billing,
+            'service_categories'   => $serviceCategories,
+            'solutions'            => $solutions,
+            'free_top_clients'     => $this->analyticsFreeTop(
+                "CASE WHEN client_name IS NULL OR client_name='' THEN '거래처 미지정' ELSE client_name END",
+                $like
+            ),
+            'free_top_solutions'   => $this->analyticsFreeTop(
+                "CASE WHEN solution_name IS NULL OR solution_name='' THEN '솔루션 미지정' ELSE solution_name END",
+                $like,
+                "AND solution_name <> ''"
+            ),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function analyticsRow(string $sql, string $like): array
+    {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['like' => $like]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $row : [];
+    }
+
+    /**
+     * 라벨 표현식별 유상(건수·매출)·무상(건수·정상가) 집계.
+     *
+     * @return list<array{label: string, paid_count: int, paid_amount: int, free_count: int, free_value: int}>
+     */
+    private function analyticsGroupStats(string $labelExpr, string $like, string $extra = '', int $limit = 0): array
+    {
+        $sql = "SELECT {$labelExpr} AS label,
+                    SUM(CASE WHEN billing_type='FREE' THEN 0 ELSE 1 END) AS paid_count,
+                    COALESCE(SUM(CASE WHEN billing_type='FREE' THEN 0 ELSE amount_krw END),0) AS paid_amount,
+                    SUM(CASE WHEN billing_type='FREE' THEN 1 ELSE 0 END) AS free_count,
+                    COALESCE(SUM(CASE WHEN billing_type='FREE' THEN list_value_krw ELSE 0 END),0) AS free_value
+                FROM tb_team_revenues
+                WHERE target_year_month LIKE :like {$extra}
+                GROUP BY {$labelExpr}
+                ORDER BY paid_amount DESC, free_value DESC, free_count DESC";
+        if ($limit > 0) {
+            $sql .= ' LIMIT ' . (int) $limit;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['like' => $like]);
+        $out = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $out[] = [
+                'label'       => (string) ($r['label'] ?? ''),
+                'paid_count'  => (int) ($r['paid_count'] ?? 0),
+                'paid_amount' => (int) ($r['paid_amount'] ?? 0),
+                'free_count'  => (int) ($r['free_count'] ?? 0),
+                'free_value'  => (int) ($r['free_value'] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * 무상 제공 집중 Top (정상가·건수 내림차순 5).
+     *
+     * @return list<array{label: string, free_value: int, free_count: int}>
+     */
+    private function analyticsFreeTop(string $labelExpr, string $like, string $extra = ''): array
+    {
+        $sql = "SELECT {$labelExpr} AS label,
+                    COALESCE(SUM(list_value_krw),0) AS free_value,
+                    COUNT(*) AS free_count
+                FROM tb_team_revenues
+                WHERE target_year_month LIKE :like AND billing_type='FREE' {$extra}
+                GROUP BY {$labelExpr}
+                ORDER BY free_value DESC, free_count DESC
+                LIMIT 5";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['like' => $like]);
+        $out = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $out[] = [
+                'label'      => (string) ($r['label'] ?? ''),
+                'free_value' => (int) ($r['free_value'] ?? 0),
+                'free_count' => (int) ($r['free_count'] ?? 0),
+            ];
+        }
+
+        return $out;
     }
 
     /**

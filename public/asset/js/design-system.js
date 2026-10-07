@@ -184,8 +184,9 @@
     });
 
     document.addEventListener('click', function (e) { if (!root.contains(e.target)) close(); });
+    // 스크롤 시 닫지 않고 메뉴 위치만 트리거에 맞춰 재배치(모달 내부 스크롤에서 닫힘 방지)
     window.addEventListener('scroll', function () {
-      if (root.classList.contains('is-open')) close();
+      if (root.classList.contains('is-open')) placeMenu();
     }, true);
     window.addEventListener('resize', function () {
       if (root.classList.contains('is-open')) close();

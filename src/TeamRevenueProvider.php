@@ -11,7 +11,7 @@ declare(strict_types=1);
 class TeamRevenueProvider
 {
     /** 서비스 구분 고정 목록 */
-    public const SERVICE_CATEGORIES = ['솔루션 서비스', '컨설팅', '기타'];
+    public const SERVICE_CATEGORIES = ['솔루션', '컨설팅', '기타'];
 
     private string $createdBy = '';
     private ?DateTimeImmutable $now = null;
@@ -182,6 +182,8 @@ class TeamRevenueProvider
                     'project_name'        => (string) ($tpl['project_name'] ?? ''),
                     'client_name'         => $tpl['client_name'] ?? null,
                     'service_category'    => (string) ($tpl['service_category'] ?? ''),
+                    'solution_name'       => (string) ($tpl['solution_name'] ?? ''),
+                    'solution_id'         => (string) ($tpl['solution_id'] ?? ''),
                     'billing_type'        => $billing,
                     'list_value_krw'      => $listValue,
                     'supply_krw'          => $money['supply_krw'],
@@ -235,6 +237,8 @@ class TeamRevenueProvider
                  project_name = :project_name,
                  client_name = :client_name,
                  service_category = :service_category,
+                 solution_name = :solution_name,
+                 solution_id = :solution_id,
                  billing_type = :billing_type,
                  list_value_krw = :list_value_krw,
                  supply_krw = :supply_krw,
@@ -252,6 +256,8 @@ class TeamRevenueProvider
             'project_name'      => $row['project_name'],
             'client_name'       => $row['client_name'],
             'service_category'  => $row['service_category'],
+            'solution_name'     => $row['solution_name'],
+            'solution_id'       => $row['solution_id'],
             'billing_type'      => $row['billing_type'],
             'list_value_krw'    => $row['list_value_krw'],
             'supply_krw'        => $row['supply_krw'],
@@ -331,11 +337,11 @@ class TeamRevenueProvider
         $stmt = $this->pdo->prepare(
             'INSERT INTO tb_team_revenues (
                 revenue_template_id, target_year_month, project_name, client_name,
-                service_category, supply_krw, vat_krw, amount_krw, billing_type, list_value_krw,
+                service_category, solution_name, solution_id, supply_krw, vat_krw, amount_krw, billing_type, list_value_krw,
                 status, received_date, assignee, note, created_by, created_at
             ) VALUES (
                 :revenue_template_id, :target_year_month, :project_name, :client_name,
-                :service_category, :supply_krw, :vat_krw, :amount_krw, :billing_type, :list_value_krw,
+                :service_category, :solution_name, :solution_id, :supply_krw, :vat_krw, :amount_krw, :billing_type, :list_value_krw,
                 :status, :received_date, :assignee, :note, :created_by, :created_at
             )'
         );
@@ -344,6 +350,12 @@ class TeamRevenueProvider
         }
         if (!array_key_exists('service_category', $row)) {
             $row['service_category'] = '';
+        }
+        if (!array_key_exists('solution_name', $row)) {
+            $row['solution_name'] = '';
+        }
+        if (!array_key_exists('solution_id', $row)) {
+            $row['solution_id'] = '';
         }
         if (!array_key_exists('billing_type', $row)) {
             $row['billing_type'] = 'PAID';
@@ -392,6 +404,13 @@ class TeamRevenueProvider
         if ($category !== '' && !in_array($category, self::SERVICE_CATEGORIES, true)) {
             throw new InvalidArgumentException('서비스 구분 값이 올바르지 않습니다.');
         }
+        // 우리 솔루션: 서비스구분이 '솔루션'일 때만 유지(id=식별, name=표시 스냅샷)
+        $solutionName = trim((string) ($data['solution_name'] ?? ''));
+        $solutionId = trim((string) ($data['solution_id'] ?? ''));
+        if ($category !== '솔루션') {
+            $solutionName = '';
+            $solutionId = '';
+        }
         $billing = strtoupper(trim((string) ($data['billing_type'] ?? 'PAID')));
         if ($billing !== 'PAID' && $billing !== 'FREE') {
             throw new InvalidArgumentException('유상/무상 값이 올바르지 않습니다.');
@@ -427,6 +446,8 @@ class TeamRevenueProvider
             'project_name'        => $name,
             'client_name'         => $client === '' ? null : $client,
             'service_category'    => $category,
+            'solution_name'       => $solutionName,
+            'solution_id'         => $solutionId,
             'billing_type'        => $billing,
             'list_value_krw'      => $listValue,
             'supply_krw'          => $money['supply_krw'],

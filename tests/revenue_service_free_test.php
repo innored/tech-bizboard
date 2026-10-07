@@ -11,9 +11,9 @@ $rev->setCreatedBy('lucy@innored.co.kr');
 // 유상 + 서비스구분
 $paid = $rev->createOneOff([
     'project_name' => '솔루션 연동', 'assignee' => '루시', 'received_date' => '2026-09-10',
-    'service_category' => '솔루션 서비스', 'billing_type' => 'PAID', 'supply_krw' => 1000000,
+    'service_category' => '솔루션', 'billing_type' => 'PAID', 'supply_krw' => 1000000,
 ]);
-expect_eq((string) $paid['service_category'], '솔루션 서비스', '유상 서비스구분 저장');
+expect_eq((string) $paid['service_category'], '솔루션', '유상 서비스구분 저장');
 expect_eq((int) $paid['amount_krw'], 1100000, '유상 합계 = 공급가+부가세');
 expect_eq((int) $paid['list_value_krw'], 0, '유상 정상가 0');
 
@@ -38,6 +38,23 @@ expect_eq((int) $toFree['list_value_krw'], 1000000, '유상→무상: 정상가 
 $toPaid = $rev->update((int) $free['id'], ['billing_type' => 'PAID', 'supply_krw' => 200000]);
 expect_eq((int) $toPaid['amount_krw'], 220000, '무상→유상: 합계 재계산');
 expect_eq((int) $toPaid['list_value_krw'], 0, '무상→유상: 정상가 0');
+
+// 우리 솔루션: 서비스구분=솔루션일 때만 저장, 그 외엔 비움
+$withSol = $rev->createOneOff([
+    'project_name' => '솔루션 건', 'assignee' => '루시', 'received_date' => '2026-10-07',
+    'service_category' => '솔루션', 'billing_type' => 'PAID', 'supply_krw' => 100000,
+    'solution_id' => 'lift_optima', 'solution_name' => 'Lift Optima',
+]);
+expect_eq((string) $withSol['solution_name'], 'Lift Optima', '솔루션: 우리 솔루션 이름 저장');
+expect_eq((string) $withSol['solution_id'], 'lift_optima', '솔루션: 우리 솔루션 id 저장');
+
+$nonSol = $rev->createOneOff([
+    'project_name' => '컨설팅 건', 'assignee' => '루시', 'received_date' => '2026-10-07',
+    'service_category' => '컨설팅', 'billing_type' => 'PAID', 'supply_krw' => 100000,
+    'solution_id' => 'lift_optima', 'solution_name' => 'Lift Optima',
+]);
+expect_eq((string) $nonSol['solution_name'], '', '비솔루션 구분: 우리 솔루션 이름 비움');
+expect_eq((string) $nonSol['solution_id'], '', '비솔루션 구분: 우리 솔루션 id 비움');
 
 // 잘못된 서비스구분 거부
 $bad = false;

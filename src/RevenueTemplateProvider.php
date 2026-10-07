@@ -78,10 +78,10 @@ class RevenueTemplateProvider
         $row['created_by'] = $this->createdBy;
         $stmt = $this->pdo->prepare(
             'INSERT INTO tb_revenue_templates (
-                project_name, client_name, service_category, billing_type, supply_krw, vat_krw, amount_krw, list_value_krw, assignee,
+                project_name, client_name, service_category, solution_name, solution_id, billing_type, supply_krw, vat_krw, amount_krw, list_value_krw, assignee,
                 start_year_month, end_year_month, note, is_active, created_by, created_at
             ) VALUES (
-                :project_name, :client_name, :service_category, :billing_type, :supply_krw, :vat_krw, :amount_krw, :list_value_krw, :assignee,
+                :project_name, :client_name, :service_category, :solution_name, :solution_id, :billing_type, :supply_krw, :vat_krw, :amount_krw, :list_value_krw, :assignee,
                 :start_year_month, :end_year_month, :note, :is_active, :created_by, :created_at
             )'
         );
@@ -110,6 +110,8 @@ class RevenueTemplateProvider
              SET project_name = :project_name,
                  client_name = :client_name,
                  service_category = :service_category,
+                 solution_name = :solution_name,
+                 solution_id = :solution_id,
                  billing_type = :billing_type,
                  supply_krw = :supply_krw,
                  vat_krw = :vat_krw,
@@ -189,6 +191,13 @@ class RevenueTemplateProvider
         if ($category !== '' && !in_array($category, TeamRevenueProvider::SERVICE_CATEGORIES, true)) {
             throw new InvalidArgumentException('서비스 구분 값이 올바르지 않습니다.');
         }
+        // 우리 솔루션: 서비스구분이 '솔루션'일 때만 유지(id=식별, name=표시 스냅샷)
+        $solutionName = trim((string) ($data['solution_name'] ?? ''));
+        $solutionId = trim((string) ($data['solution_id'] ?? ''));
+        if ($category !== '솔루션') {
+            $solutionName = '';
+            $solutionId = '';
+        }
 
         $billing = strtoupper(trim((string) ($data['billing_type'] ?? 'PAID')));
         if ($billing !== 'PAID' && $billing !== 'FREE') {
@@ -220,6 +229,8 @@ class RevenueTemplateProvider
             'project_name'     => $name,
             'client_name'      => $client === '' ? null : $client,
             'service_category' => $category,
+            'solution_name'    => $solutionName,
+            'solution_id'      => $solutionId,
             'billing_type'     => $billing,
             'supply_krw'       => $supply,
             'vat_krw'          => $vat,

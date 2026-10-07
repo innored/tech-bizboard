@@ -33,6 +33,8 @@ $expenseBreakdown = is_array($summary['expense_breakdown'] ?? null) ? $summary['
 $revenueBreakdown = is_array($summary['revenue_breakdown'] ?? null) ? $summary['revenue_breakdown'] : [];
 $revenueProjectBreakdown = is_array($summary['revenue_project_breakdown'] ?? null) ? $summary['revenue_project_breakdown'] : [];
 $yearFreeValue = (int) ($summary['year_free_value'] ?? 0);
+$analytics = is_array($summary['analytics'] ?? null) ? $summary['analytics'] : [];
+$yearFreeCount = (int) ($analytics['billing']['free_count'] ?? 0);
 $qTotal = DashboardProvider::quarterTotal($series, $quarter);
 $qPrevTotal = $quarter > 1 ? DashboardProvider::quarterTotal($series, $quarter - 1) : null;
 
@@ -182,6 +184,7 @@ require __DIR__ . '/_header.php';
         <div class="dash-kpi-cell has-pop">
           <p class="dash-kpi-label is-earn">매출<button type="button" class="dash-kpi-info" aria-label="매출에 포함된 항목 보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button></p>
           <p class="dash-kpi-num" data-dash="year-rev"><?= h($fmtWon($yearRev)) ?><span class="unit">원</span></p>
+          <p class="dash-kpi-free" data-free-count<?= $yearFreeCount > 0 ? '' : ' hidden' ?>>무상 제공 <strong><?= number_format($yearFreeCount) ?></strong>건</p>
           <div class="dash-kpi-pop" role="tooltip">
             <p class="dash-kpi-pop-head">프로젝트별 매출</p>
             <ul class="dash-kpi-pop-list" data-kpi-list="rev"></ul>
@@ -260,12 +263,42 @@ require __DIR__ . '/_header.php';
     </section>
 
     <section class="dash-splits" aria-label="연간 비중">
-      <div class="card dash-split-card">
+      <div class="card dash-split-card dash-carousel" data-carousel aria-label="매출 비중·구성">
         <div class="dash-chart-head">
-          <p class="dash-chart-title">매출 비중</p>
-          <span class="text-sm text-faint">거래처별 · <span id="dash-rev-year"><?= h((string) $year) ?></span>년</span>
+          <p class="dash-chart-title" data-carousel-title>거래처별 매출 비중</p>
+          <div class="dash-carousel-nav">
+            <span class="text-sm text-faint"><span data-dash="analytics-year"><?= h((string) $year) ?></span>년</span>
+            <button type="button" class="dash-carousel-btn" data-carousel-prev aria-label="이전">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <button type="button" class="dash-carousel-btn" data-carousel-next aria-label="다음">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
         </div>
-        <div id="dash-rev-donut" class="dash-donut" role="img" aria-label="거래처별 매출 비중"></div>
+        <div class="dash-carousel-viewport">
+          <div class="dash-carousel-track" data-carousel-track>
+            <div class="dash-slide" data-title="거래처별 매출">
+              <div id="dash-rev-donut" class="dash-donut" role="img" aria-label="거래처별 매출 비중"></div>
+            </div>
+            <div class="dash-slide" data-title="매출 유·무상 비중">
+              <div id="dash-billing-donut" class="dash-donut" role="img" aria-label="유·무상 건수 비중"></div>
+            </div>
+            <div class="dash-slide" data-title="서비스 구분별">
+              <div class="dash-an-body" data-analytics="service"></div>
+            </div>
+            <div class="dash-slide" data-title="매출 상위 솔루션 Top">
+              <div class="dash-an-body" data-analytics="solutions"></div>
+            </div>
+            <div class="dash-slide" data-title="무상 집중 · 거래처">
+              <div class="dash-an-body" data-analytics="free-clients"></div>
+            </div>
+            <div class="dash-slide" data-title="무상 집중 · 솔루션">
+              <div class="dash-an-body" data-analytics="free-solutions"></div>
+            </div>
+          </div>
+        </div>
+        <div class="dash-carousel-dots" data-carousel-dots></div>
       </div>
       <div class="card dash-split-card">
         <div class="dash-chart-head">
@@ -278,6 +311,7 @@ require __DIR__ . '/_header.php';
 
     <script type="application/json" id="dash-bootstrap"><?= json_encode([
         'year'                => $year,
+        'analytics'           => $analytics,
         'year_total'          => $yearTotal,
         'year_total_prev'     => $yearPrev,
         'previous_month'      => $prev,

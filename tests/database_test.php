@@ -91,6 +91,8 @@ expect_true(in_array('revenue_template_id', $revCols, true), '수입 템플릿 F
 expect_true(in_array('target_year_month', $revCols, true), '대상 년월');
 expect_true(in_array('supply_krw', $revCols, true), '공급가');
 expect_true(in_array('vat_krw', $revCols, true), '부가세');
+expect_true(in_array('solution_name', $revCols, true), '우리 솔루션');
+expect_true(in_array('solution_id', $revCols, true), '우리 솔루션 id');
 expect_true(in_array('created_by', $revCols, true), '수입 작성자');
 
 $revTplCols = array_map(
@@ -102,6 +104,8 @@ expect_true(in_array('end_year_month', $revTplCols, true), '종료월');
 expect_true(in_array('created_by', $revTplCols, true), '수입 템플릿 작성자');
 expect_true(in_array('billing_type', $revTplCols, true), '수입 템플릿 유/무상');
 expect_true(in_array('list_value_krw', $revTplCols, true), '수입 템플릿 정상가');
+expect_true(in_array('solution_name', $revTplCols, true), '수입 템플릿 우리 솔루션');
+expect_true(in_array('solution_id', $revTplCols, true), '수입 템플릿 우리 솔루션 id');
 expect_true(in_array('vat_krw', $revTplCols, true), '수입 템플릿 부가세');
 expect_true(in_array('amount_krw', $revTplCols, true), '수입 템플릿 총액');
 

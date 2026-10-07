@@ -18,9 +18,6 @@ storage/receipts/*
 
 
 
-# revenue-receipts: 영수증 파일은 커밋하지 않음
-# !storage/revenue-receipts
-
 
 .superpowers/
 docs/superpowers

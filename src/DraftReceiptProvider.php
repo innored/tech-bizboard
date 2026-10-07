@@ -99,7 +99,7 @@ class DraftReceiptProvider
         $stmt = $this->pdo->prepare(
             'SELECT * FROM tb_draft_receipts
              WHERE expense_template_id = :t AND target_year_month = :ym
-             ORDER BY id'
+             ORDER BY id DESC'
         );
         $stmt->execute(['t' => $templateId, 'ym' => $yearMonth]);
         $rows = $stmt->fetchAll();

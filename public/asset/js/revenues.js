@@ -28,6 +28,8 @@
   var revModal = document.getElementById('rev-modal');
   var tplModal = document.getElementById('rev-tpl-modal');
   var tplLoaded = false;
+  var yearFilter = 'all';     // 연간 목록 필터: all | PAID | FREE
+  var yearRowsCache = [];     // 연간 행 캐시(KPI 카드 필터 재렌더용)
 
   var TRASH_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
@@ -159,8 +161,10 @@
     if (!m) {
       return yearReq
         .then(function (data) {
-          renderYearIndex(data.rows || [], data.free_value_year || 0);
-          renderYearGroups(data.rows || []);
+          yearRowsCache = data.rows || [];
+          renderYearIndex(yearRowsCache, data.free_value_year || 0);
+          renderYearGroups(yearRowsCache);
+          updateYearFilterUI();
         })
         .catch(function (err) {
           toast('목록 오류', err.message, 'danger');
@@ -171,7 +175,8 @@
       fetchRows('?year=' + encodeURIComponent(y) + '&month=' + encodeURIComponent(m))
     ])
       .then(function (pair) {
-        renderYearIndex(pair[0].rows || [], pair[0].free_value_year || 0);
+        yearRowsCache = pair[0].rows || [];
+        renderYearIndex(yearRowsCache, pair[0].free_value_year || 0);
         renderMonthTable(pair[1].rows || [], pair[1].free_value_month || 0);
       })
       .catch(function (err) {
@@ -202,6 +207,27 @@
 
   function escapeAttr(s) {
     return escapeHtml(s);
+  }
+
+  /* 우리 솔루션: 목록 자동완성 + 자유 입력(콤보박스). 이름→id 매핑은 서버가 data-solutions로 내려줌 */
+  var solutionMap = {};
+  try { solutionMap = JSON.parse(root.getAttribute('data-solutions') || '{}') || {}; } catch (e) { solutionMap = {}; }
+
+  /* 서비스구분이 '솔루션'일 때만 입력 활성화 */
+  function applySolutionEnabled(prefix, category) {
+    var input = document.getElementById(prefix + '-solution');
+    if (!input) return;
+    var enabled = category === '솔루션';
+    input.disabled = !enabled;
+    if (!enabled) input.value = ''; // 비활성 시 비움(저장 때도 서버가 비움)
+  }
+
+  /* 솔루션 입력값 추출: name=입력 텍스트, id=목록에 있으면 매칭(없으면 직접입력 → 공란) */
+  function readSolution(prefix) {
+    var input = document.getElementById(prefix + '-solution');
+    var name = input ? (input.value || '').trim() : '';
+    if (!name) return { id: '', name: '' };
+    return { id: solutionMap[name] || '', name: name };
   }
 
   function periodLabel(start, end) {
@@ -322,11 +348,13 @@
         ' data-vat="' + escapeAttr(String(vatKrw)) + '"' +
         ' data-amount="' + escapeAttr(String(amountKrw)) + '"' +
         ' data-list-value="' + escapeAttr(String(listKrw)) + '"' +
+        ' data-solution="' + escapeAttr(row.solution_name || '') + '"' +
+        ' data-solution-id="' + escapeAttr(row.solution_id || '') + '"' +
         ' data-status="' + escapeAttr(row.status || 'COMPLETED') + '"' +
         ' data-note="' + escapeAttr(row.note || '') + '"' +
         ' data-created-by="' + escapeAttr(row.created_by || '') + '">' +
         '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
-        '<td class="col-project">' + escapeHtml(row.project_name || '') + '</td>' +
+        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
         '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
         '<td class="col-svc">' + escapeHtml(svcLabel(row.service_category || '')) + '</td>' +
         '<td class="col-billing">' +
@@ -356,6 +384,8 @@
       project_name: tr.querySelector('.col-project') ? tr.querySelector('.col-project').textContent.trim() : '',
       client_name: tr.querySelector('.col-client') ? tr.querySelector('.col-client').textContent.trim() : '',
       service_category: tr.querySelector('.col-svc') ? tr.querySelector('.col-svc').textContent.trim() : '',
+      solution_name: tr.getAttribute('data-solution') || '',
+      solution_id: tr.getAttribute('data-solution-id') || '',
       billing_type: tr.querySelector('.col-billing .badge-muted') ? 'FREE' : 'PAID',
       supply_krw: toInt(tr.getAttribute('data-supply') || ''),
       vat_krw: toInt(tr.getAttribute('data-vat') || ''),
@@ -385,13 +415,15 @@
         ' data-amount="' + escapeAttr(String(Number(row.amount_krw || 0))) + '"' +
         ' data-list-value="' + escapeAttr(String(listKrw)) + '"' +
         ' data-service="' + escapeAttr(row.service_category || '') + '"' +
+        ' data-solution="' + escapeAttr(row.solution_name || '') + '"' +
+        ' data-solution-id="' + escapeAttr(row.solution_id || '') + '"' +
         ' data-billing="' + escapeAttr(billing) + '"' +
         ' data-start="' + escapeAttr(row.start_year_month || '') + '"' +
         ' data-end="' + escapeAttr(row.end_year_month || '') + '"' +
         ' data-active="' + (active ? '1' : '0') + '"' +
         ' data-note="' + escapeAttr(row.note || '') + '"' +
         ' data-created-by="' + escapeAttr(row.created_by || '') + '">' +
-        '<td class="col-project">' + escapeHtml(row.project_name || '') + '</td>' +
+        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
         '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
         '<td class="num col-money">' + moneyDisplay + '</td>' +
         '<td class="col-assignee">' + escapeHtml(row.assignee || '') + '</td>' +
@@ -411,6 +443,8 @@
       project_name: tr.querySelector('.col-project') ? tr.querySelector('.col-project').textContent.trim() : '',
       client_name: tr.querySelector('.col-client') ? tr.querySelector('.col-client').textContent.trim() : '',
       service_category: tr.getAttribute('data-service') || '',
+      solution_name: tr.getAttribute('data-solution') || '',
+      solution_id: tr.getAttribute('data-solution-id') || '',
       billing_type: tr.getAttribute('data-billing') === 'FREE' ? 'FREE' : 'PAID',
       supply_krw: toInt(tr.getAttribute('data-supply') || ''),
       vat_krw: toInt(tr.getAttribute('data-vat') || ''),
@@ -441,7 +475,7 @@
     var buckets = [];
     var i;
     for (i = 1; i <= 12; i++) {
-      buckets.push({ month: String(i).padStart(2, '0'), count: 0, supply_krw: 0, vat_krw: 0, amount_krw: 0, rows: [] });
+      buckets.push({ month: String(i).padStart(2, '0'), count: 0, paid_count: 0, free_count: 0, supply_krw: 0, vat_krw: 0, amount_krw: 0, rows: [] });
     }
     (rows || []).forEach(function (row) {
       var ym = String(row.target_year_month || '');
@@ -450,6 +484,8 @@
       var idx = parseInt(mm, 10) - 1;
       if (idx < 0 || idx > 11) return;
       buckets[idx].count += 1;
+      if (row.billing_type === 'FREE') buckets[idx].free_count += 1;
+      else buckets[idx].paid_count += 1;
       buckets[idx].supply_krw += Number(row.supply_krw || 0);
       buckets[idx].vat_krw += Number(row.vat_krw || 0);
       buckets[idx].amount_krw += Number(row.amount_krw || 0);
@@ -471,7 +507,13 @@
     var m = parseInt(bucket.month, 10);
     var state = cellState(year, bucket.month, bucket.count);
     var amount = state === 'is-filled' ? compactWon(bucket.amount_krw) : (state === 'is-future' ? '예정' : '·');
-    var count = state === 'is-filled' ? (bucket.count + '건') : '';
+    var count = '';
+    if (state === 'is-filled') {
+      var parts = [];
+      if (bucket.paid_count > 0) parts.push('유상 ' + bucket.paid_count + '건');
+      if (bucket.free_count > 0) parts.push('무상 ' + bucket.free_count + '건');
+      count = parts.length ? parts.join(' / ') : (bucket.count + '건');
+    }
     var active = currentMonth() === bucket.month ? ' is-active' : '';
     var locked = isYmLocked(year + '-' + bucket.month) ? ' is-locked' : '';
     return (
@@ -485,19 +527,17 @@
     );
   }
 
-  function monthTag(ym) {
-    var m = String(ym || '').match(/^\d{4}-(\d{2})$/);
-    return m ? (parseInt(m[1], 10) + '월') : '';
-  }
-
   function yearRowHtml(row) {
     var repeating = !!row.revenue_template_id;
+    var billing = row.billing_type === 'FREE' ? 'FREE' : 'PAID';
     return (
       '<tr data-goto-month="' + escapeAttr(String(row.target_year_month || '').slice(5, 7)) + '">' +
-        '<td class="col-ym">' + escapeHtml(monthTag(row.target_year_month)) + '</td>' +
         '<td class="col-date">' + escapeHtml(mdDate(row.received_date)) + '</td>' +
-        '<td class="col-project">' + escapeHtml(row.project_name || '') + '</td>' +
+        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
         '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
+        '<td class="col-billing">' + (billing === 'FREE'
+          ? '<span class="badge badge-muted">무상</span>'
+          : '<span class="badge badge-brand">유상</span>') + '</td>' +
         '<td class="num col-money">' + fmt(row.supply_krw) + '</td>' +
         '<td class="num col-money">' + fmt(row.vat_krw) + '</td>' +
         '<td class="num col-money">' + fmt(row.amount_krw) + '</td>' +
@@ -507,22 +547,42 @@
     );
   }
 
-  /** 연간 보기: 한 해 전체 줄을 날짜순 단일 표로. 그룹 표 N개를 대체한다. */
-  function yearListTableHtml(rows) {
+  /** 연간 보기: 한 달 그룹(접기/펴기) */
+  function monthGroupHtml(mm, rows, open) {
     var sorted = rows.slice().sort(function (a, b) {
       return String(a.received_date || '').localeCompare(String(b.received_date || ''));
     });
+    var paid = 0;
+    var free = 0;
+    var amount = 0;
+    rows.forEach(function (r) {
+      if (r.billing_type === 'FREE') free += 1; else paid += 1;
+      amount += Number(r.amount_krw || 0);
+    });
+    var metaParts = [];
+    if (paid > 0) metaParts.push('유상 ' + paid + '건');
+    if (free > 0) metaParts.push('무상 ' + free + '건');
     return (
-      '<div class="table-wrap rev-table-wrap">' +
-        '<table class="table rev-year-table">' +
-          '<thead><tr>' +
-            '<th class="col-ym">월</th><th class="col-date">입금일</th><th class="col-project">프로젝트</th><th class="col-client">거래처</th>' +
-            '<th class="num col-money">공급가</th><th class="num col-money">부가세</th><th class="num col-money">합계</th>' +
-            '<th class="col-assignee">담당</th><th class="col-kind">구분</th>' +
-          '</tr></thead>' +
-          '<tbody>' + (sorted.length ? sorted.map(yearRowHtml).join('') : emptyRowHtml(9, '데이터가 없습니다.')) + '</tbody>' +
-        '</table>' +
-      '</div>'
+      '<section class="rev-month-group' + (open ? ' is-open' : '') + '" data-month="' + escapeAttr(mm) + '">' +
+        '<button type="button" class="rev-month-head" data-acc-toggle aria-expanded="' + (open ? 'true' : 'false') + '">' +
+          '<span class="rev-month-head-m">' + parseInt(mm, 10) + '월</span>' +
+          '<span class="rev-month-head-meta">' + escapeHtml(metaParts.join(' / ')) + '</span>' +
+          '<span class="rev-month-head-amt">합계 ' + fmt(amount) + '원</span>' +
+          '<svg class="rev-month-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+        '</button>' +
+        '<div class="rev-month-body">' +
+          '<div class="table-wrap rev-table-wrap">' +
+            '<table class="table rev-year-table">' +
+              '<thead><tr>' +
+                '<th class="col-date">입금일</th><th class="col-project">프로젝트</th><th class="col-client">거래처</th><th class="col-billing">유상/무상</th>' +
+                '<th class="num col-money">공급가</th><th class="num col-money">부가세</th><th class="num col-money">합계</th>' +
+                '<th class="col-assignee">담당</th><th class="col-kind">구분</th>' +
+              '</tr></thead>' +
+              '<tbody>' + sorted.map(yearRowHtml).join('') + '</tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
+      '</section>'
     );
   }
 
@@ -537,31 +597,67 @@
       supply += b.supply_krw;
       vat += b.vat_krw;
       total += b.amount_krw;
-      count += b.count;
+      count += b.paid_count; // 유상 합계 카드 건수 = 유상 건수만
     });
     if (yearIndex) yearIndex.innerHTML = buckets.map(function (b) { return yearCellHtml(year, b); }).join('');
     setText('rev-year-supply', fmt(supply));
     setText('rev-year-vat', fmt(vat));
     setText('rev-year-total', fmt(total));
     setText('rev-year-count', '총 ' + count + '건');
-    setText('rev-year-free', fmt(freeValueYear || 0));
+    // 무상 제공은 금액이 0이라 건수로 집계한다
+    var freeCount = (rows || []).filter(function (r) {
+      return String(r.target_year_month || '').indexOf(year + '-') === 0 && r.billing_type === 'FREE';
+    }).length;
+    setText('rev-year-free', String(freeCount));
     return buckets;
   }
 
   function renderYearGroups(rows) {
     var yr = currentYear();
     var yrRows = (rows || []).filter(function (r) {
-      return String(r.target_year_month || '').indexOf(yr + '-') === 0;
+      if (String(r.target_year_month || '').indexOf(yr + '-') !== 0) return false;
+      if (yearFilter === 'PAID') return r.billing_type !== 'FREE';
+      if (yearFilter === 'FREE') return r.billing_type === 'FREE';
+      return true;
     });
-    if (yearGroups) yearGroups.innerHTML = yearListTableHtml(yrRows);
+    if (!yearGroups) return;
+    // 월별 그룹화
+    var groups = {};
+    yrRows.forEach(function (r) {
+      var mm = String(r.target_year_month || '').slice(5, 7);
+      if (!mm) return;
+      (groups[mm] = groups[mm] || []).push(r);
+    });
+    var months = Object.keys(groups).sort().reverse(); // 최근 달이 위로(내림차순)
+    if (!months.length) {
+      yearGroups.innerHTML = '<div class="rev-year-acc-empty">데이터가 없습니다.</div>';
+      if (yearEmpty) yearEmpty.hidden = true;
+      return;
+    }
+    // 기본 펼침: 당월(데이터 있으면), 없으면 가장 최근 달
+    var today = String(root.getAttribute('data-today') || '');
+    var curMm = today.length >= 7 ? today.slice(5, 7) : '';
+    var openMm = groups[curMm] ? curMm : months[0]; // 당월 없으면 가장 최근 달
+    yearGroups.innerHTML = '<div class="rev-year-acc">' +
+      months.map(function (mm) { return monthGroupHtml(mm, groups[mm], mm === openMm); }).join('') +
+      '</div>';
     if (yearEmpty) yearEmpty.hidden = true;
+  }
+
+  /* 유상/무상 KPI 카드 활성 표시 */
+  function updateYearFilterUI() {
+    root.querySelectorAll('[data-year-filter]').forEach(function (el) {
+      el.classList.toggle('is-active', el.getAttribute('data-year-filter') === yearFilter);
+    });
   }
 
   function renderMonthTable(rows, freeValueMonth) {
     if (!listBody) return;
     listBody.innerHTML = (rows || []).map(function (row) { return listRowHtml(row); }).join('');
     updateListSummary();
-    setText('rev-sum-free', fmt(freeValueMonth || 0));
+    // 무상 제공은 금액이 0이라 건수로 집계한다
+    var freeCount = (rows || []).filter(function (r) { return r.billing_type === 'FREE'; }).length;
+    setText('rev-sum-free', String(freeCount));
   }
 
   function refreshYearIndex() {
@@ -642,6 +738,10 @@
 
     /* 서비스구분 */
     setSelectValue('rev-t-service_category-wrap', 'rev-t-service_category', svcCat, svcCat || '선택');
+    /* 우리 솔루션 (입력 텍스트=name) */
+    var solInputT = document.getElementById('rev-t-solution');
+    if (solInputT) solInputT.value = (rowData && rowData.solution_name) ? rowData.solution_name : '';
+    applySolutionEnabled('rev-t', svcCat);
     /* 유상/무상 */
     setSelectValue('rev-t-billing_type-wrap', 'rev-t-billing_type', billing, billing === 'FREE' ? '무상' : '유상');
 
@@ -687,6 +787,9 @@
     var project_name = ((document.getElementById('rev-t-project_name') || {}).value || '').trim();
     var client_name = ((document.getElementById('rev-t-client_name') || {}).value || '').trim();
     var service_category = (document.getElementById('rev-t-service_category') || {}).value || '';
+    var sol = readSolution('rev-t');
+    var solution_id = sol.id;
+    var solution_name = sol.name;
     var billing_type = (document.getElementById('rev-t-billing_type') || {}).value || 'PAID';
     var supply_krw = toInt((document.getElementById('rev-t-supply_krw') || {}).value || '');
     var vat_krw = toInt((document.getElementById('rev-t-vat_krw') || {}).value || '');
@@ -712,6 +815,8 @@
       project_name: project_name,
       client_name: client_name,
       service_category: service_category,
+      solution_id: solution_id,
+      solution_name: solution_name,
       billing_type: billing_type,
       assignee: assignee,
       start_year_month: period.start,
@@ -732,6 +837,8 @@
         if (!savedRow.project_name) savedRow.project_name = project_name;
         savedRow.client_name = savedRow.client_name != null ? savedRow.client_name : client_name;
         savedRow.service_category = savedRow.service_category || service_category;
+        if (savedRow.solution_id == null) savedRow.solution_id = solution_id;
+        if (savedRow.solution_name == null) savedRow.solution_name = solution_name;
         savedRow.billing_type = savedRow.billing_type || billing_type;
         if (!savedRow.assignee) savedRow.assignee = assignee;
         if (savedRow.supply_krw == null) savedRow.supply_krw = supply_krw;
@@ -824,6 +931,11 @@
     var svcLabel = svcCat || '선택';
     setSelectValue('rev-m-service_category-wrap', 'rev-m-service_category', svcCat, svcLabel);
 
+    /* 우리 솔루션 (입력 텍스트=name) */
+    var solInput = modalEl('rev-m-solution');
+    if (solInput) solInput.value = (rowData && rowData.solution_name) ? rowData.solution_name : '';
+    applySolutionEnabled('rev-m', svcCat);
+
     /* 유상/무상 */
     setSelectValue('rev-m-billing_type-wrap', 'rev-m-billing_type', billing, billing === 'FREE' ? '무상' : '유상');
 
@@ -899,6 +1011,9 @@
     var project_name = ((modalEl('rev-m-project_name') || {}).value || '').trim();
     var client_name = ((modalEl('rev-m-client_name') || {}).value || '').trim();
     var service_category = (modalEl('rev-m-service_category') || {}).value || '';
+    var sol = readSolution('rev-m');
+    var solution_id = sol.id;
+    var solution_name = sol.name;
     var billing_type = (modalEl('rev-m-billing_type') || {}).value || 'PAID';
     var supply_krw = toInt((modalEl('rev-m-supply_krw') || {}).value || '');
     var vat_krw = toInt((modalEl('rev-m-vat_krw') || {}).value || '');
@@ -923,6 +1038,8 @@
       project_name: project_name,
       client_name: client_name,
       service_category: service_category,
+      solution_id: solution_id,
+      solution_name: solution_name,
       billing_type: billing_type,
       supply_krw: supply_krw,
       vat_krw: vat_krw,
@@ -943,6 +1060,8 @@
         if (!savedRow.project_name) savedRow.project_name = project_name;
         if (!savedRow.client_name) savedRow.client_name = client_name;
         savedRow.service_category = savedRow.service_category || service_category;
+        if (savedRow.solution_id == null) savedRow.solution_id = solution_id;
+        if (savedRow.solution_name == null) savedRow.solution_name = solution_name;
         savedRow.billing_type = savedRow.billing_type || billing_type;
         if (savedRow.supply_krw == null) savedRow.supply_krw = supply_krw;
         if (savedRow.vat_krw == null) savedRow.vat_krw = vat_krw;
@@ -1246,6 +1365,29 @@
   ════════════════════════════════════════ */
 
   root.addEventListener('click', function (e) {
+    /* 월 그룹 헤더 → 접기/펴기 */
+    var accHead = e.target.closest('[data-acc-toggle]');
+    if (accHead) {
+      var sec = accHead.closest('.rev-month-group');
+      if (sec) {
+        var opened = sec.classList.toggle('is-open');
+        accHead.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      }
+      return;
+    }
+    /* 유상 합계 / 무상 제공 카드 클릭 → 연간 목록을 해당 유형만 필터(다시 누르면 전체) */
+    var kpiFilter = e.target.closest('[data-year-filter]');
+    if (kpiFilter) {
+      var want = kpiFilter.getAttribute('data-year-filter');
+      yearFilter = (yearFilter === want) ? 'all' : want;
+      updateYearFilterUI();
+      if (isYearView()) {
+        renderYearGroups(yearRowsCache);
+      } else {
+        setPeriod(currentYear(), ''); // 연간 보기로 전환(loadList가 yearFilter 반영해 렌더)
+      }
+      return;
+    }
     var gotoMonth = e.target.closest('[data-goto-month]');
     if (gotoMonth) {
       var next = gotoMonth.getAttribute('data-goto-month') || '';
@@ -1375,6 +1517,15 @@
       recalcMoney('rev-m', kind);
     } else if (tplModal && !tplModal.hidden && tplModal.contains(el)) {
       recalcMoney('rev-t', kind);
+    }
+  });
+
+  /* 서비스구분 변경 → '우리 솔루션' 활성/비활성 */
+  document.addEventListener('select:change', function (e) {
+    if (revModal && !revModal.hidden && e.target.closest('#rev-m-service_category-wrap')) {
+      applySolutionEnabled('rev-m', (modalEl('rev-m-service_category') || {}).value || '');
+    } else if (tplModal && !tplModal.hidden && e.target.closest('#rev-t-service_category-wrap')) {
+      applySolutionEnabled('rev-t', (document.getElementById('rev-t-service_category') || {}).value || '');
     }
   });
 

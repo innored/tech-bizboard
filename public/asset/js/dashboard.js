@@ -10,10 +10,12 @@
   var chartEl = document.getElementById('dash-chart');
   var expDonutEl = document.getElementById('dash-exp-donut');
   var revDonutEl = document.getElementById('dash-rev-donut');
+  var billingDonutEl = document.getElementById('dash-billing-donut');
   var series = [];
   var chart = null;
   var expDonut = null;
   var revDonut = null;
+  var billingDonut = null;
   var currentYear = parseInt(root.getAttribute('data-year') || '', 10);
   var currentQuarter = parseInt(root.getAttribute('data-quarter') || '', 10);
 
@@ -481,8 +483,8 @@
       legend: {
         type: 'scroll',
         orient: 'vertical',
-        left: '54%',
-        right: 8,
+        left: '48%',
+        right: 4,
         top: 'middle',
         itemWidth: 10,
         itemHeight: 10,
@@ -491,7 +493,7 @@
           color: muted,
           fontSize: 11,
           fontFamily: fontSans,
-          width: 118,
+          width: 230,
           overflow: 'break'
         },
         formatter: function (name) {
@@ -501,7 +503,7 @@
       series: [{
         type: 'pie',
         radius: ['50%', '72%'],
-        center: ['27%', '50%'],
+        center: ['24%', '50%'],
         avoidLabelOverlap: true,
         label: { show: false },
         labelLine: { show: false },
@@ -539,15 +541,176 @@
     });
   }
 
+  /* ── 매출 구성 분석 ── */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function anEl(key) { return root.querySelector('[data-analytics="' + key + '"]'); }
+  function anEmpty() { return '<p class="dash-an-empty">데이터가 없습니다.</p>'; }
+
+  /* 유·무상 비중 도넛(건수 기준, 유상은 매출 금액 병기) */
+  function drawBillingDonut(el, chart, b) {
+    if (!el || typeof echarts === 'undefined') return chart;
+    if (!chart) chart = echarts.init(el);
+    b = b || { paid_count: 0, paid_amount: 0, free_count: 0, free_value: 0 };
+    var muted = token('--ink-500', '#64748b');
+    var surface = token('--surface', '#ffffff');
+    var fontSans = token('--font-sans', "'Pretendard GOV Variable', sans-serif");
+    var total = (b.paid_count || 0) + (b.free_count || 0);
+    if (!total) {
+      chart.clear();
+      chart.setOption({ graphic: { type: 'text', left: 'center', top: 'middle', style: { text: '데이터가 없습니다.', fill: muted, fontSize: 13, fontFamily: fontSans } } });
+      return chart;
+    }
+    var cnt = { '유상': b.paid_count || 0, '무상': b.free_count || 0 };
+    var data = [
+      { name: '유상', value: b.paid_count || 0, itemStyle: { color: token('--brand-600', '#2563eb') } },
+      { name: '무상', value: b.free_count || 0, itemStyle: { color: token('--ink-400', '#94a3b8') } }
+    ];
+    chart.setOption({
+      graphic: [],
+      tooltip: {
+        trigger: 'item',
+        textStyle: { fontFamily: fontSans, fontSize: 12 },
+        formatter: function (p) {
+          var s = p.name + '<br/>' + fmt(p.value) + '건 (' + p.percent + '%)';
+          if (p.name === '유상') s += '<br/>매출 ' + fmt(b.paid_amount || 0) + '원';
+          return s;
+        }
+      },
+      legend: {
+        type: 'scroll', orient: 'vertical', left: '48%', right: 4, top: 'middle',
+        itemWidth: 10, itemHeight: 10, itemGap: 11,
+        textStyle: { color: muted, fontSize: 11, fontFamily: fontSans, width: 230, overflow: 'break' },
+        formatter: function (name) {
+          var c = cnt[name] || 0;
+          var p = total ? Math.round(c / total * 100) : 0;
+          if (name === '유상') return '유상  ' + c + '건 (' + p + '%) · ' + fmtAxis(b.paid_amount || 0) + '원';
+          return name + '  ' + c + '건 (' + p + '%)';
+        }
+      },
+      series: [{
+        type: 'pie', radius: ['50%', '72%'], center: ['24%', '50%'], avoidLabelOverlap: true,
+        label: { show: false }, labelLine: { show: false },
+        itemStyle: { borderColor: surface, borderWidth: 2, borderRadius: 3 },
+        data: data
+      }]
+    }, true);
+    return chart;
+  }
+
+  function renderStatList(key, rows) {
+    var el = anEl(key);
+    if (!el) return;
+    rows = rows || [];
+    if (!rows.length) { el.innerHTML = anEmpty(); return; }
+    var maxPaid = 0;
+    rows.forEach(function (r) { if ((r.paid_amount || 0) > maxPaid) maxPaid = r.paid_amount; });
+    el.innerHTML = rows.map(function (r) {
+      var w = maxPaid > 0 ? Math.round((r.paid_amount || 0) / maxPaid * 100) : 0;
+      var sub = [];
+      if (r.paid_count > 0) sub.push('유상 ' + r.paid_count + '건');
+      if (r.free_count > 0) sub.push('무상 ' + r.free_count + '건');
+      return '<div class="an-row">' +
+        '<div class="an-row-top"><span class="an-row-label">' + esc(r.label) + '</span>' +
+          '<span class="an-row-amt">' + fmt(r.paid_amount) + '원</span></div>' +
+        '<div class="an-bar"><span style="width:' + w + '%"></span></div>' +
+        '<div class="an-row-sub">' + esc(sub.join(' · ')) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderFreeTop(key, rows) {
+    var el = anEl(key);
+    if (!el) return;
+    rows = rows || [];
+    if (!rows.length) { el.innerHTML = anEmpty(); return; }
+    var maxN = rows[0] ? rows[0].free_count : 0;
+    el.innerHTML = rows.map(function (r) {
+      var w = maxN > 0 ? Math.round((r.free_count || 0) / maxN * 100) : 0;
+      var val = r.free_value > 0 ? ' · 정상가 ' + fmt(r.free_value) + '원' : '';
+      return '<div class="an-row">' +
+        '<div class="an-row-top"><span class="an-row-label">' + esc(r.label) + '</span>' +
+          '<span class="an-row-amt">' + r.free_count + '건</span></div>' +
+        '<div class="an-bar is-free"><span style="width:' + w + '%"></span></div>' +
+        (val ? '<div class="an-row-sub">' + esc(val.replace(/^ · /, '')) + '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  function renderAnalytics(an) {
+    if (!an) return;
+    renderStatList('service', an.service_categories);
+    renderStatList('solutions', an.solutions);
+    renderFreeTop('free-clients', an.free_top_clients);
+    renderFreeTop('free-solutions', an.free_top_solutions);
+  }
+
+  /* ── 매출 비중 캐러셀 ── */
+  function initCarousel() {
+    var box = root.querySelector('[data-carousel]');
+    if (!box) return;
+    var track = box.querySelector('[data-carousel-track]');
+    var titleEl = box.querySelector('[data-carousel-title]');
+    var dotsEl = box.querySelector('[data-carousel-dots]');
+    var slides = track ? Array.prototype.slice.call(track.children) : [];
+    if (!track || !slides.length) return;
+    var idx = 0;
+
+    if (dotsEl) {
+      dotsEl.innerHTML = slides.map(function (s, i) {
+        return '<button type="button" class="dash-dot-btn" data-dot="' + i + '" aria-label="' + esc(s.getAttribute('data-title') || ('' + (i + 1))) + '"></button>';
+      }).join('');
+    }
+
+    function go(i) {
+      idx = (i + slides.length) % slides.length;
+      track.style.transform = 'translateX(' + (-idx * 100) + '%)';
+      if (titleEl) titleEl.textContent = slides[idx].getAttribute('data-title') || '';
+      if (dotsEl) {
+        dotsEl.querySelectorAll('[data-dot]').forEach(function (d) {
+          d.classList.toggle('is-active', parseInt(d.getAttribute('data-dot'), 10) === idx);
+        });
+      }
+      // 도넛 슬라이드로 이동 시 리사이즈(숨겨졌다 보일 때 대비)
+      if (revDonut && slides[idx].querySelector('#dash-rev-donut')) {
+        try { revDonut.resize(); } catch (e) { /* noop */ }
+      }
+      if (billingDonut && slides[idx].querySelector('#dash-billing-donut')) {
+        try { billingDonut.resize(); } catch (e) { /* noop */ }
+      }
+    }
+
+    var prev = box.querySelector('[data-carousel-prev]');
+    var next = box.querySelector('[data-carousel-next]');
+    if (prev) prev.addEventListener('click', function () { go(idx - 1); });
+    if (next) next.addEventListener('click', function () { go(idx + 1); });
+    if (dotsEl) dotsEl.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-dot]');
+      if (b) go(parseInt(b.getAttribute('data-dot'), 10));
+    });
+    go(0);
+  }
+
   function applyBreakdowns(data) {
     if (!data) return;
     expDonut = drawDonut(expDonutEl, expDonut, data.expense_breakdown);
     revDonut = drawDonut(revDonutEl, revDonut, data.revenue_breakdown);
+    billingDonut = drawBillingDonut(billingDonutEl, billingDonut, data.analytics && data.analytics.billing);
     renderKpiPop('rev', data.revenue_project_breakdown || data.revenue_breakdown);
     renderKpiPop('exp', data.expense_breakdown);
+    renderAnalytics(data.analytics);
+    var fc = (data.analytics && data.analytics.billing) ? (data.analytics.billing.free_count || 0) : 0;
+    var fcEl = root.querySelector('[data-free-count]');
+    if (fcEl) {
+      var fcStrong = fcEl.querySelector('strong');
+      if (fcStrong) fcStrong.textContent = fmt(fc);
+      fcEl.hidden = !(fc > 0);
+    }
     var y = data.year != null ? data.year : currentYear;
     setText('dash-exp-year', String(y));
     setText('dash-rev-year', String(y));
+    setText('analytics-year', String(y));
   }
 
   function loadYear(year) {
@@ -605,6 +768,7 @@
     }
     if (expDonut) expDonut.resize();
     if (revDonut) revDonut.resize();
+    if (billingDonut) billingDonut.resize();
   });
 
   var bootEl = document.getElementById('dash-bootstrap');
@@ -624,4 +788,5 @@
   if (!booted) {
     loadYear(currentYear);
   }
+  initCarousel();
 })();

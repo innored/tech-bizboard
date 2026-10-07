@@ -42,6 +42,80 @@ function tbb_root(): string
 }
 
 /**
+ * 우리 솔루션 목록(account-hub API). 1시간 파일 캐시, 실패 시 스테일 캐시 → 빈 배열.
+ *
+ * @return list<array{id: string, name: string}>
+ */
+function tbb_solutions(): array
+{
+    $url = 'https://api.innored.co.kr/api/account-hub/solutions?visibility=all';
+    $ttl = 3600;
+    $cacheDir = tbb_root() . '/storage/cache';
+    $cacheFile = $cacheDir . '/solutions.json';
+
+    if (is_file($cacheFile) && (time() - (int) filemtime($cacheFile)) < $ttl) {
+        $cached = json_decode((string) file_get_contents($cacheFile), true);
+        if (is_array($cached)) {
+            return $cached;
+        }
+    }
+
+    $list = null;
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        if ($ch !== false) {
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT        => 8,
+                CURLOPT_SSL_VERIFYPEER => true,
+            ]);
+            $raw = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if (is_string($raw) && $code === 200) {
+                $data = json_decode($raw, true);
+                $list = $data['response']['solutions'] ?? null;
+            }
+        }
+    }
+
+    if (!is_array($list)) {
+        // 실패: 오래된 캐시라도 있으면 사용
+        if (is_file($cacheFile)) {
+            $stale = json_decode((string) file_get_contents($cacheFile), true);
+            if (is_array($stale)) {
+                return $stale;
+            }
+        }
+        return [];
+    }
+
+    $out = [];
+    foreach ($list as $s) {
+        if (!is_array($s)) {
+            continue;
+        }
+        if (array_key_exists('is_active', $s) && !$s['is_active']) {
+            continue;
+        }
+        $name = trim((string) ($s['name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        $out[] = ['id' => (string) ($s['client_id'] ?? $name), 'name' => $name];
+    }
+    usort($out, static fn (array $a, array $b): int => strcmp($a['name'], $b['name']));
+
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0775, true);
+    }
+    @file_put_contents($cacheFile, json_encode($out, JSON_UNESCAPED_UNICODE));
+
+    return $out;
+}
+
+/**
  * 설정은 전부 환경변수(.env 또는 진짜 환경변수)에서 읽는다. 비밀값은 코드/웹루트에 두지 않는다.
  * .env 는 bootstrap 맨 위 tbb_load_env()가 미리 올려 둔다.
  */

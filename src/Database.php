@@ -295,6 +295,18 @@ class Database
             'vat_krw',
             $driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'
         );
+        self::ensureColumn(
+            $pdo,
+            'tb_team_revenues',
+            'solution_name',
+            $driver === 'mysql' ? "VARCHAR(100) NOT NULL DEFAULT ''" : "TEXT NOT NULL DEFAULT ''"
+        );
+        self::ensureColumn(
+            $pdo,
+            'tb_team_revenues',
+            'solution_id',
+            $driver === 'mysql' ? "VARCHAR(100) NOT NULL DEFAULT ''" : "TEXT NOT NULL DEFAULT ''"
+        );
         $pdo->exec(
             "UPDATE tb_team_revenues
              SET target_year_month = substr(received_date, 1, 7)
@@ -318,6 +330,18 @@ class Database
             self::ensureColumn($pdo, 'tb_revenue_templates', 'vat_krw', $intDef);
             self::ensureColumn($pdo, 'tb_revenue_templates', 'amount_krw', $intDef);
             self::ensureColumn($pdo, 'tb_revenue_templates', 'list_value_krw', $intDef);
+            self::ensureColumn(
+                $pdo,
+                'tb_revenue_templates',
+                'solution_name',
+                $driver === 'mysql' ? "VARCHAR(100) NOT NULL DEFAULT ''" : "TEXT NOT NULL DEFAULT ''"
+            );
+            self::ensureColumn(
+                $pdo,
+                'tb_revenue_templates',
+                'solution_id',
+                $driver === 'mysql' ? "VARCHAR(100) NOT NULL DEFAULT ''" : "TEXT NOT NULL DEFAULT ''"
+            );
         }
     }
 

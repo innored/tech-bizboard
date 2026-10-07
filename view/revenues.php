@@ -16,6 +16,8 @@ $month = (string) ($month ?? '');
 $years = is_array($years ?? null) ? $years : DashboardProvider::yearOptions();
 $today = (string) ($today ?? tbb_today());
 $isYearView = $month === '';
+$solutions = tbb_solutions();
+$solutionMap = array_column($solutions, 'id', 'name'); // name → client_id (직접입력 시 id 매칭용)
 
 require __DIR__ . '/_header.php';
 ?>
@@ -29,6 +31,7 @@ require __DIR__ . '/_header.php';
     data-month="<?= h($month) ?>"
     data-today="<?= h($today) ?>"
     data-editable-from="<?= tbb_is_admin() ? '' : h(tbb_previous_month()) ?>"
+    data-solutions="<?= h(json_encode($solutionMap, JSON_UNESCAPED_UNICODE)) ?>"
   >
     <div class="page-head">
       <h1 class="text-h1">매출(수입)</h1>
@@ -68,7 +71,7 @@ require __DIR__ . '/_header.php';
             >연간 보기</button>
           </div>
           <div class="rev-year-kpis" aria-label="연간 요약">
-            <article class="rev-year-kpi rev-year-paid is-total">
+            <article class="rev-year-kpi rev-year-paid is-total" data-year-filter="PAID" role="button" tabindex="0" title="유상만 보기">
               <div class="rev-year-paid-main">
                 <span class="rev-year-kpi-label">유상 합계</span>
                 <strong class="rev-year-kpi-amt"><span id="rev-year-total">0</span><span class="unit">원</span></strong>
@@ -79,9 +82,9 @@ require __DIR__ . '/_header.php';
                 <span class="rev-year-sub-row"><span class="rev-year-sub-label">부가세</span><span class="rev-year-sub-amt"><span id="rev-year-vat">0</span>원</span></span>
               </div>
             </article>
-            <article class="rev-year-kpi rev-year-free-block">
+            <article class="rev-year-kpi rev-year-free-block" data-year-filter="FREE" role="button" tabindex="0" title="무상만 보기">
               <span class="rev-year-kpi-label">무상 제공</span>
-              <strong class="rev-year-kpi-amt"><span id="rev-year-free">0</span><span class="unit">원</span></strong>
+              <strong class="rev-year-kpi-amt"><span id="rev-year-free">0</span><span class="unit">건</span></strong>
             </article>
           </div>
           <div class="rev-year-index" id="rev-year-index" aria-label="월별 수입"></div>
@@ -95,7 +98,7 @@ require __DIR__ . '/_header.php';
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
               </span>
               <div class="rev-card-meta">
-                <span class="text-sm text-faint" id="rev-sum-free-wrap">무상 <strong id="rev-sum-free">0</strong>원</span>
+                <span class="text-sm text-faint" id="rev-sum-free-wrap">무상 제공 <strong id="rev-sum-free">0</strong>건</span>
                 <span class="text-sm text-faint" id="rev-list-count">총 0건</span>
                 <button
                   class="btn btn-primary btn-sm"
@@ -208,7 +211,7 @@ require __DIR__ . '/_header.php';
     </div>
     <div class="rev-modal-body">
       <div class="rev-modal-grid">
-        <div class="field">
+        <div class="field rev-modal-full">
           <label class="label" for="rev-m-received_date">입금일 <span class="req">*</span></label>
           <div class="input-wrap">
             <svg class="icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -233,11 +236,15 @@ require __DIR__ . '/_header.php';
             <input type="hidden" id="rev-m-service_category" value="" />
             <ul class="select-menu" role="listbox">
               <li class="select-option" data-value="">선택</li>
-              <li class="select-option" data-value="솔루션 서비스">솔루션 서비스</li>
+              <li class="select-option" data-value="솔루션">솔루션</li>
               <li class="select-option" data-value="컨설팅">컨설팅</li>
               <li class="select-option" data-value="기타">기타</li>
             </ul>
           </div>
+        </div>
+        <div class="field" id="rev-m-solution-field">
+          <label class="label" for="rev-m-solution">솔루션</label>
+          <input class="input" type="text" id="rev-m-solution" list="rev-solution-list" placeholder="목록에서 선택하거나 직접 입력" autocomplete="off" />
         </div>
         <div class="field">
           <label class="label" for="rev-m-billing_type-trigger">유상/무상 <span class="req">*</span></label>
@@ -311,7 +318,7 @@ require __DIR__ . '/_header.php';
     </div>
     <div class="rev-modal-body">
       <div class="rev-modal-grid">
-        <div class="field">
+        <div class="field rev-modal-full">
           <label class="label" for="rev-t-period">기간 <span class="req">*</span></label>
           <div class="input-wrap is-period">
             <svg class="icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -336,11 +343,15 @@ require __DIR__ . '/_header.php';
             <input type="hidden" id="rev-t-service_category" value="" />
             <ul class="select-menu" role="listbox">
               <li class="select-option" data-value="">선택</li>
-              <li class="select-option" data-value="솔루션 서비스">솔루션 서비스</li>
+              <li class="select-option" data-value="솔루션">솔루션</li>
               <li class="select-option" data-value="컨설팅">컨설팅</li>
               <li class="select-option" data-value="기타">기타</li>
             </ul>
           </div>
+        </div>
+        <div class="field" id="rev-t-solution-field">
+          <label class="label" for="rev-t-solution">솔루션</label>
+          <input class="input" type="text" id="rev-t-solution" list="rev-solution-list" placeholder="목록에서 선택하거나 직접 입력" autocomplete="off" />
         </div>
         <div class="field">
           <label class="label" for="rev-t-billing_type-trigger">유상/무상 <span class="req">*</span></label>
@@ -391,4 +402,11 @@ require __DIR__ . '/_header.php';
     </div>
   </div>
 </div>
+
+<!-- 우리 솔루션 자동완성 목록(두 모달 공용) -->
+<datalist id="rev-solution-list">
+  <?php foreach ($solutions as $s): ?>
+    <option value="<?= h($s['name']) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
 <?php require __DIR__ . '/_footer.php'; ?>
