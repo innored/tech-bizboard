@@ -14,19 +14,20 @@ $sso = tbb_guard();
 $SSO_USER = $sso->getUser();
 $SHOW_LOGOUT = $sso->isLoginRequired();
 $CSRF_TOKEN = $sso->csrfToken();
-$PAGE_SCRIPTS = ['asset/js/revenues.js'];
+$PAGE_SCRIPTS = ['asset/js/revenue_year_filter.js', 'asset/js/revenues.js'];
 
-$year = trim((string) ($_GET['year'] ?? ''));
-$month = trim((string) ($_GET['month'] ?? ''));
 $today = tbb_today();
-if (preg_match('/^\d{4}$/', $year) !== 1) {
-    $year = substr($today, 0, 4);
-    if (preg_match('/^\d{2}$/', $month) !== 1) {
-        $month = substr($today, 5, 2);
-    }
-} elseif (preg_match('/^\d{2}$/', $month) !== 1) {
-    $month = '';
-}
+$resolved = RevenueListQuery::resolve($_GET, $today);
+$year = $resolved['year'];
+$month = $resolved['month'];
+$tab = $resolved['tab'];
+$filters = [
+    'client'   => $resolved['client'],
+    'service'  => $resolved['service'],
+    'solution' => $resolved['solution'],
+    'billing'  => $resolved['billing'],
+    'kind'     => $resolved['kind'],
+];
 $years = DashboardProvider::yearOptions();
 $yearInt = (int) $year;
 if (!in_array($yearInt, $years, true)) {

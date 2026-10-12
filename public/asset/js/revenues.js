@@ -8,28 +8,56 @@
   var apiUrl = root.getAttribute('data-api') || 'api/revenues';
   var tplApi = root.getAttribute('data-tpl-api') || 'api/revenue_templates';
   var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-  var yearEl = document.getElementById('rev-year');
   var listBody = document.getElementById('rev-list-body');
   var listEmpty = document.getElementById('rev-list-empty');
   var listCount = document.getElementById('rev-list-count');
   var tplBody = document.getElementById('rev-tpl-body');
   var tplEmpty = document.getElementById('rev-tpl-empty');
   var tplCount = document.getElementById('rev-tpl-count');
-  var yearWrap = document.getElementById('rev-year-wrap');
-  var yearIndex = document.getElementById('rev-year-index');
-  var yearGroups = document.getElementById('rev-year-groups');
-  var yearEmpty = document.getElementById('rev-year-empty');
+  var yearBody = document.getElementById('rev-year-body');
+  var yearTotal = document.getElementById('rev-year-total');
   var monthCard = document.getElementById('rev-month-card');
   var addRowBtn = document.getElementById('rev-add-row');
-  var yearViewBtn = document.getElementById('rev-year-view');
-  var saveHint = document.getElementById('rev-save-hint');
   var lockHint = document.getElementById('rev-lock-hint');
   var monthLock = document.getElementById('rev-month-lock');
   var revModal = document.getElementById('rev-modal');
   var tplModal = document.getElementById('rev-tpl-modal');
   var tplLoaded = false;
-  var yearFilter = 'all';     // 연간 목록 필터: all | PAID | FREE
-  var yearRowsCache = [];     // 연간 행 캐시(KPI 카드 필터 재렌더용)
+  var yearRowsCache = [];
+  var monthCardRows = [];
+  var yearIndex = document.getElementById('rev-year-index');
+  var yearFilterApi = (typeof RevenueYearFilter !== 'undefined') ? RevenueYearFilter : null;
+  var filters = yearFilterApi ? yearFilterApi.normalizeFilters({
+    client: root.getAttribute('data-client') || '',
+    service: root.getAttribute('data-service') || '',
+    solution: root.getAttribute('data-solution') || '',
+    billing: root.getAttribute('data-billing') || '',
+    kind: root.getAttribute('data-kind') || ''
+  }) : { client: '', service: '', solution: '', billing: '', kind: '' };
+  var pickers = {
+    client: {
+      key: 'client',
+      box: 'rev-client-select',
+      trigger: 'rev-client-trigger',
+      menu: 'rev-client-menu',
+      search: 'rev-client-search',
+      empty: '거래처 전체',
+      none: '거래처 미지정',
+      placeholder: '거래처 검색',
+      optionsFn: 'clientOptions'
+    },
+    solution: {
+      key: 'solution',
+      box: 'rev-solution-select',
+      trigger: 'rev-solution-trigger',
+      menu: 'rev-solution-menu',
+      search: 'rev-solution-search',
+      empty: '솔루션 전체',
+      none: '솔루션 미지정',
+      placeholder: '솔루션 검색',
+      optionsFn: 'solutionOptions'
+    }
+  };
 
   var TRASH_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
@@ -75,9 +103,7 @@
   }
 
   function currentYear() {
-    var y = yearEl ? String(yearEl.value || '').trim() : '';
-    if (/^\d{4}$/.test(y)) return y;
-    y = String(root.getAttribute('data-year') || '').trim();
+    var y = String(root.getAttribute('data-year') || '').trim();
     return /^\d{4}$/.test(y) ? y : String(new Date().getFullYear());
   }
 
@@ -86,8 +112,17 @@
     return /^\d{2}$/.test(m) ? m : '';
   }
 
-  function isYearView() {
-    return currentMonth() === '';
+  function currentTab() {
+    var tab = String(root.getAttribute('data-tab') || '').trim();
+    if (tab === 'month' || tab === 'year' || tab === 'tpl') return tab;
+    return currentMonth() ? 'month' : 'year';
+  }
+
+  function defaultMonth(year) {
+    var today = String(root.getAttribute('data-today') || '');
+    var mm = today.length >= 7 ? today.slice(5, 7) : '01';
+    if (today.slice(0, 4) === year && /^\d{2}$/.test(mm)) return mm;
+    return '01';
   }
 
   function editableFrom() {
@@ -105,43 +140,55 @@
   }
 
   function syncMode() {
-    var yearMode = isYearView();
     var locked = isViewLocked();
-    if (yearWrap) yearWrap.hidden = !yearMode;
-    if (monthCard) monthCard.hidden = yearMode;
-    if (addRowBtn) addRowBtn.disabled = yearMode || locked;
-    if (yearViewBtn) {
-      yearViewBtn.setAttribute('aria-pressed', yearMode ? 'true' : 'false');
-      yearViewBtn.classList.toggle('btn-secondary', yearMode);
-      yearViewBtn.classList.toggle('btn-outline', !yearMode);
-    }
-    if (saveHint) {
-      saveHint.textContent = yearMode
-        ? '달 카드를 고르면 줄을 고칩니다.'
-        : (locked ? '전전월 이전은 볼 수만 있습니다.' : '각 줄의 저장을 누르면 반영됩니다.');
-    }
+    if (addRowBtn) addRowBtn.disabled = locked;
     if (monthCard) monthCard.classList.toggle('is-locked', locked);
     if (lockHint) lockHint.hidden = !locked;
     if (monthLock) monthLock.hidden = !locked;
   }
 
-  function syncUrl() {
-    var y = currentYear();
-    var m = currentMonth();
-    var q = '?year=' + encodeURIComponent(y);
-    if (m) q += '&month=' + encodeURIComponent(m);
-    history.replaceState(null, '', q);
-    root.setAttribute('data-year', y);
-    root.setAttribute('data-month', m);
-    if (yearEl) yearEl.value = y;
+  function syncYearSelects(year) {
+    root.querySelectorAll('[data-rev-year]').forEach(function (sel) {
+      var hidden = sel.querySelector('input[type="hidden"]');
+      var label = sel.querySelector('.select-value');
+      if (hidden) hidden.value = year;
+      if (label) label.textContent = year + '년';
+      sel.querySelectorAll('.select-option').forEach(function (opt) {
+        opt.classList.toggle('is-selected', opt.getAttribute('data-value') === year);
+      });
+    });
   }
 
-  function setPeriod(year, month) {
-    root.setAttribute('data-year', year);
-    root.setAttribute('data-month', month || '');
-    if (yearEl) yearEl.value = year;
+  function syncUrl() {
+    var params = new URLSearchParams();
+    params.set('tab', currentTab());
+    params.set('year', currentYear());
+    var month = currentMonth();
+    if (month) params.set('month', month);
+    if (filters.client) params.set('client', filters.client);
+    if (filters.service) params.set('service', filters.service);
+    if (filters.solution) params.set('solution', filters.solution);
+    if (filters.billing) params.set('billing', filters.billing);
+    if (filters.kind) params.set('kind', filters.kind);
+    history.replaceState(null, '', '?' + params.toString());
+    root.setAttribute('data-year', currentYear());
+    root.setAttribute('data-month', month);
+    root.setAttribute('data-tab', currentTab());
+  }
+
+  function activateTab(tab) {
+    var btn = root.querySelector('.tab[data-tab="' + tab + '"]');
+    if (btn && !btn.classList.contains('is-active')) {
+      btn.click();
+      return;
+    }
+    root.setAttribute('data-tab', tab);
     syncUrl();
     syncMode();
+    if (tab === 'tpl') {
+      if (!tplLoaded) loadTpl();
+      return;
+    }
     loadList();
   }
 
@@ -155,29 +202,58 @@
   }
 
   function loadList() {
+    var tab = currentTab();
     var y = currentYear();
-    var m = currentMonth();
-    var yearReq = fetchRows('?year=' + encodeURIComponent(y));
-    if (!m) {
-      return yearReq
+    if (tab === 'year') {
+      return fetchRows('?year=' + encodeURIComponent(y))
         .then(function (data) {
           yearRowsCache = data.rows || [];
-          renderYearIndex(yearRowsCache, data.free_value_year || 0);
-          renderYearGroups(yearRowsCache);
-          updateYearFilterUI();
+          reconcilePickFilters();
+          renderAnnual();
         })
         .catch(function (err) {
           toast('목록 오류', err.message, 'danger');
         });
     }
+    if (tab !== 'month') return;
+    var m = currentMonth();
+    if (!m) {
+      m = defaultMonth(y);
+      root.setAttribute('data-month', m);
+      syncUrl();
+    }
     return Promise.all([
-      yearReq,
+      fetchRows('?year=' + encodeURIComponent(y)),
       fetchRows('?year=' + encodeURIComponent(y) + '&month=' + encodeURIComponent(m))
     ])
       .then(function (pair) {
-        yearRowsCache = pair[0].rows || [];
-        renderYearIndex(yearRowsCache, pair[0].free_value_year || 0);
+        monthCardRows = pair[0].rows || [];
+        renderMonthCards(monthCardRows);
         renderMonthTable(pair[1].rows || [], pair[1].free_value_month || 0);
+      })
+      .catch(function (err) {
+        toast('목록 오류', err.message, 'danger');
+      });
+  }
+
+  /* 월 카드만 다시 그린다. 목록 저장 뒤에는 카드 합계도 맞춘다. */
+  function refreshMonthCards() {
+    if (currentTab() !== 'month') return;
+    fetchRows('?year=' + encodeURIComponent(currentYear()))
+      .then(function (data) {
+        monthCardRows = data.rows || [];
+        renderMonthCards(monthCardRows);
+      })
+      .catch(function () { /* 월 표는 유지 */ });
+  }
+
+  function loadMonthTable() {
+    var y = currentYear();
+    var m = currentMonth();
+    if (!m) return;
+    return fetchRows('?year=' + encodeURIComponent(y) + '&month=' + encodeURIComponent(m))
+      .then(function (data) {
+        renderMonthTable(data.rows || [], data.free_value_month || 0);
       })
       .catch(function (err) {
         toast('목록 오류', err.message, 'danger');
@@ -318,10 +394,13 @@
     setText('rev-tpl-sum-supply', fmt(supply));
   }
 
-  /* ── 서비스구분 레이블 ── */
-  function svcLabel(val) {
-    if (!val) return '';
-    return val;
+  /* 서비스구분. 솔루션 이름이 있으면 괄호로 붙인다. */
+  function svcDisplay(category, solutionName) {
+    var cat = String(category || '').trim();
+    var name = String(solutionName || '').trim();
+    if (!cat) return name ? '(' + name + ')' : '';
+    if (!name) return cat;
+    return cat + ' (' + name + ')';
   }
 
   /* ── 유상/무상 레이블 ── */
@@ -348,6 +427,7 @@
         ' data-vat="' + escapeAttr(String(vatKrw)) + '"' +
         ' data-amount="' + escapeAttr(String(amountKrw)) + '"' +
         ' data-list-value="' + escapeAttr(String(listKrw)) + '"' +
+        ' data-service="' + escapeAttr(row.service_category || '') + '"' +
         ' data-solution="' + escapeAttr(row.solution_name || '') + '"' +
         ' data-solution-id="' + escapeAttr(row.solution_id || '') + '"' +
         ' data-status="' + escapeAttr(row.status || 'COMPLETED') + '"' +
@@ -356,7 +436,7 @@
         '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
         '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
         '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
-        '<td class="col-svc">' + escapeHtml(svcLabel(row.service_category || '')) + '</td>' +
+        '<td class="col-svc">' + escapeHtml(svcDisplay(row.service_category, row.solution_name)) + '</td>' +
         '<td class="col-billing">' +
           (billing === 'FREE'
             ? '<span class="badge badge-muted">무상</span>'
@@ -383,7 +463,7 @@
       received_date: tr.querySelector('.col-date') ? tr.querySelector('.col-date').textContent.trim() : '',
       project_name: tr.querySelector('.col-project') ? tr.querySelector('.col-project').textContent.trim() : '',
       client_name: tr.querySelector('.col-client') ? tr.querySelector('.col-client').textContent.trim() : '',
-      service_category: tr.querySelector('.col-svc') ? tr.querySelector('.col-svc').textContent.trim() : '',
+      service_category: tr.getAttribute('data-service') || '',
       solution_name: tr.getAttribute('data-solution') || '',
       solution_id: tr.getAttribute('data-solution-id') || '',
       billing_type: tr.querySelector('.col-billing .badge-muted') ? 'FREE' : 'PAID',
@@ -459,42 +539,234 @@
     };
   }
 
+  function pickLabel(kind, key) {
+    var spec = pickers[kind];
+    if (!key) return spec.empty;
+    if (yearFilterApi && key === yearFilterApi.NONE) return spec.none;
+    return key;
+  }
+
+  function renderPickMenu(kind, options) {
+    var spec = pickers[kind];
+    var menu = document.getElementById(spec.menu);
+    var label = document.querySelector('#' + spec.box + ' .select-value');
+    var value = filters[spec.key] || '';
+    if (label) label.textContent = pickLabel(kind, value);
+    if (!menu) return;
+    var html = '<li class="select-search"><span class="ss-wrap"><input type="text" id="' + spec.search + '" placeholder="' + spec.placeholder + '" autocomplete="off" /></span></li>';
+    html += '<li class="select-option' + (value === '' ? ' is-selected' : '') + '" data-value="" role="option">' + escapeHtml(spec.empty) + '</li>';
+    (options || []).forEach(function (key) {
+      html += '<li class="select-option' + (value === key ? ' is-selected' : '') + '" data-value="' + escapeAttr(key) + '" role="option">' + escapeHtml(pickLabel(kind, key)) + '</li>';
+    });
+    menu.innerHTML = html;
+  }
+
+  function closePickMenu(kind) {
+    var spec = pickers[kind];
+    var box = document.getElementById(spec.box);
+    var trigger = document.getElementById(spec.trigger);
+    if (box) box.classList.remove('is-open');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function closeAllPickMenus() {
+    Object.keys(pickers).forEach(closePickMenu);
+  }
+
+  function togglePickMenu(kind) {
+    var spec = pickers[kind];
+    var box = document.getElementById(spec.box);
+    var trigger = document.getElementById(spec.trigger);
+    if (!box || !trigger) return;
+    var open = !box.classList.contains('is-open');
+    closeAllPickMenus();
+    if (!open) return;
+    box.classList.add('is-open');
+    trigger.setAttribute('aria-expanded', 'true');
+    var input = document.getElementById(spec.search);
+    if (input) {
+      input.value = '';
+      filterPickMenu(kind, '');
+      setTimeout(function () { input.focus(); }, 0);
+    }
+  }
+
+  function filterPickMenu(kind, query) {
+    var menu = document.getElementById(pickers[kind].menu);
+    if (!menu) return;
+    var q = String(query || '').trim().toLowerCase();
+    menu.querySelectorAll('.select-option').forEach(function (opt) {
+      var text = opt.textContent.trim().toLowerCase();
+      opt.hidden = q !== '' && text.indexOf(q) === -1;
+    });
+  }
+
+  function pickKindFrom(el) {
+    if (!el || !el.closest) return '';
+    var found = '';
+    Object.keys(pickers).forEach(function (kind) {
+      if (el.closest('#' + pickers[kind].box)) found = kind;
+    });
+    return found;
+  }
+
+  function reconcilePickFilters() {
+    if (!yearFilterApi) return;
+    Object.keys(pickers).forEach(function (kind) {
+      var spec = pickers[kind];
+      var options = yearFilterApi[spec.optionsFn](yearRowsCache);
+      filters[spec.key] = yearFilterApi.keepClient(filters[spec.key], options);
+      renderPickMenu(kind, options);
+    });
+    syncUrl();
+  }
+
+  function syncServiceSelect() {
+    var wrap = document.getElementById('rev-service-wrap');
+    if (!wrap) return;
+    var value = filters.service || '';
+    var hidden = document.getElementById('rev-service');
+    if (hidden) hidden.value = value;
+    var text = '서비스구분 전체';
+    wrap.querySelectorAll('.select-option').forEach(function (opt) {
+      var on = (opt.getAttribute('data-value') || '') === value;
+      opt.classList.toggle('is-selected', on);
+      if (on) text = opt.textContent.trim();
+    });
+    var label = wrap.querySelector('.select-value');
+    if (label) label.textContent = text;
+  }
+
+  function syncSegments() {
+    root.querySelectorAll('[data-rev-segment]').forEach(function (group) {
+      var key = group.getAttribute('data-rev-segment');
+      var value = filters[key] || '';
+      group.querySelectorAll('button').forEach(function (btn) {
+        btn.classList.toggle('is-active', (btn.getAttribute('data-value') || '') === value);
+      });
+    });
+  }
+
+  function resetFilters() {
+    filters.client = '';
+    filters.service = '';
+    filters.solution = '';
+    filters.billing = '';
+    filters.kind = '';
+    closeAllPickMenus();
+    reconcilePickFilters();
+    syncServiceSelect();
+    syncSegments();
+    if (currentTab() === 'year') renderAnnual();
+  }
+
+  function setFilter(key, value) {
+    filters[key] = value;
+    Object.keys(pickers).forEach(function (kind) {
+      if (pickers[kind].key !== key) return;
+      var label = document.querySelector('#' + pickers[kind].box + ' .select-value');
+      if (label) label.textContent = pickLabel(kind, value);
+      var menu = document.getElementById(pickers[kind].menu);
+      if (menu) {
+        menu.querySelectorAll('.select-option').forEach(function (opt) {
+          opt.classList.toggle('is-selected', (opt.getAttribute('data-value') || '') === value);
+        });
+      }
+    });
+    syncUrl();
+    if (currentTab() === 'year') renderAnnual();
+  }
+
+  function renderAnnual() {
+    var rows = yearFilterApi ? yearFilterApi.filterRows(yearRowsCache, filters) : yearRowsCache;
+    var sum = yearFilterApi
+      ? yearFilterApi.summarize(rows)
+      : { supply_krw: 0, vat_krw: 0, amount_krw: 0, paid_count: 0, free_count: 0 };
+    setText('rev-year-supply', fmt(sum.supply_krw));
+    setText('rev-year-vat', fmt(sum.vat_krw));
+    setText('rev-year-total', fmt(sum.amount_krw));
+    setText('rev-year-count', '총 ' + sum.paid_count + '건');
+    setText('rev-year-free', String(sum.free_count));
+    renderYearTable(rows);
+  }
+
+  function yearRowHtml(row) {
+    var repeating = !!row.revenue_template_id;
+    var billing = row.billing_type === 'FREE' ? 'FREE' : 'PAID';
+    var supply = billing === 'FREE' ? '' : fmt(row.supply_krw);
+    var vat = billing === 'FREE' ? '' : fmt(row.vat_krw);
+    var amount = billing === 'FREE' ? '' : fmt(row.amount_krw);
+    return (
+      '<tr data-goto-month="' + escapeAttr(String(row.target_year_month || '').slice(5, 7)) + '">' +
+        '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
+        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
+        '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
+        '<td class="col-svc">' + escapeHtml(svcDisplay(row.service_category, row.solution_name)) + '</td>' +
+        '<td class="col-billing">' + (billing === 'FREE'
+          ? '<span class="badge badge-muted">무상</span>'
+          : '<span class="badge badge-brand">유상</span>') + '</td>' +
+        '<td class="num col-money">' + supply + '</td>' +
+        '<td class="num col-money">' + vat + '</td>' +
+        '<td class="num col-money">' + amount + '</td>' +
+        '<td class="col-assignee">' + escapeHtml(row.assignee || '') + '</td>' +
+        '<td class="col-kind">' + (repeating ? '<span class="badge badge-brand">반복</span>' : '<span class="badge badge-muted">단건</span>') + '</td>' +
+      '</tr>'
+    );
+  }
+
+  /* 연간 목록: 필터된 행을 입금일 최신순으로 한 표에 모은다. */
+  function renderYearTable(rows) {
+    if (!yearBody) return;
+    var yr = currentYear();
+    var yrRows = (rows || []).filter(function (r) {
+      return String(r.target_year_month || '').indexOf(yr + '-') === 0;
+    });
+    yrRows.sort(function (a, b) {
+      var byDate = String(b.received_date || '').localeCompare(String(a.received_date || ''));
+      if (byDate !== 0) return byDate;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
+    var sum = yearFilterApi
+      ? yearFilterApi.summarize(yrRows)
+      : { supply_krw: 0, vat_krw: 0, amount_krw: 0 };
+    if (!yrRows.length) {
+      yearBody.innerHTML = '<tr class="rev-empty-row"><td class="rev-empty-cell" colspan="10">조건에 맞는 수입이 없습니다.</td></tr>';
+    } else {
+      yearBody.innerHTML = yrRows.map(yearRowHtml).join('');
+    }
+    setText('rev-year-foot-supply', fmt(sum.supply_krw));
+    setText('rev-year-foot-vat', fmt(sum.vat_krw));
+    setText('rev-year-foot-amount', fmt(sum.amount_krw));
+    if (yearTotal) yearTotal.hidden = false;
+  }
+
   function compactWon(n) {
     var abs = Math.abs(Number(n) || 0);
     if (abs >= 10000) return Math.round(abs / 10000).toLocaleString('ko-KR') + '만';
     return fmt(abs);
   }
 
-  function mdDate(value) {
-    var m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return String(value || '');
-    return String(parseInt(m[2], 10)) + '/' + String(parseInt(m[3], 10));
-  }
-
-  function yearMonthBuckets(year, rows) {
+  function monthCardBuckets(year, rows) {
     var buckets = [];
     var i;
     for (i = 1; i <= 12; i++) {
-      buckets.push({ month: String(i).padStart(2, '0'), count: 0, paid_count: 0, free_count: 0, supply_krw: 0, vat_krw: 0, amount_krw: 0, rows: [] });
+      buckets.push({ month: String(i).padStart(2, '0'), paid_count: 0, free_count: 0, amount_krw: 0 });
     }
     (rows || []).forEach(function (row) {
       var ym = String(row.target_year_month || '');
       if (ym.indexOf(year + '-') !== 0) return;
-      var mm = ym.slice(5, 7);
-      var idx = parseInt(mm, 10) - 1;
+      var idx = parseInt(ym.slice(5, 7), 10) - 1;
       if (idx < 0 || idx > 11) return;
-      buckets[idx].count += 1;
       if (row.billing_type === 'FREE') buckets[idx].free_count += 1;
-      else buckets[idx].paid_count += 1;
-      buckets[idx].supply_krw += Number(row.supply_krw || 0);
-      buckets[idx].vat_krw += Number(row.vat_krw || 0);
-      buckets[idx].amount_krw += Number(row.amount_krw || 0);
-      buckets[idx].rows.push(row);
+      else {
+        buckets[idx].paid_count += 1;
+        buckets[idx].amount_krw += Number(row.amount_krw || 0);
+      }
     });
     return buckets;
   }
 
-  function cellState(year, month, count) {
+  function monthCardState(year, month, count) {
     var today = String(root.getAttribute('data-today') || '');
     var nowYm = today.length >= 7 ? today.slice(0, 7) : '';
     var ym = year + '-' + month;
@@ -503,152 +775,36 @@
     return 'is-empty';
   }
 
-  function yearCellHtml(year, bucket) {
-    var m = parseInt(bucket.month, 10);
-    var state = cellState(year, bucket.month, bucket.count);
+  function monthCardHtml(year, bucket) {
+    var count = bucket.paid_count + bucket.free_count;
+    var state = monthCardState(year, bucket.month, count);
     var amount = state === 'is-filled' ? compactWon(bucket.amount_krw) : (state === 'is-future' ? '예정' : '·');
-    var count = '';
+    var label = '';
     if (state === 'is-filled') {
       var parts = [];
       if (bucket.paid_count > 0) parts.push('유상 ' + bucket.paid_count + '건');
       if (bucket.free_count > 0) parts.push('무상 ' + bucket.free_count + '건');
-      count = parts.length ? parts.join(' / ') : (bucket.count + '건');
+      label = parts.join(' / ');
     }
     var active = currentMonth() === bucket.month ? ' is-active' : '';
     var locked = isYmLocked(year + '-' + bucket.month) ? ' is-locked' : '';
     return (
-      '<button type="button" class="rev-year-cell ' + state + active + locked + '" data-goto-month="' + escapeAttr(bucket.month) + '"' +
+      '<button type="button" class="rev-year-cell ' + state + active + locked + '" data-month-card="' + escapeAttr(bucket.month) + '"' +
         (locked ? ' title="잠긴 달"' : '') + '>' +
         (locked ? LOCK_ICON : '') +
-        '<span class="rev-year-cell-m">' + m + '월</span>' +
+        '<span class="rev-year-cell-m">' + parseInt(bucket.month, 10) + '월</span>' +
         '<strong class="rev-year-cell-amt">' + escapeHtml(amount) + '</strong>' +
-        '<span class="rev-year-cell-n">' + escapeHtml(count) + '</span>' +
+        '<span class="rev-year-cell-n">' + escapeHtml(label) + '</span>' +
       '</button>'
     );
   }
 
-  function yearRowHtml(row) {
-    var repeating = !!row.revenue_template_id;
-    var billing = row.billing_type === 'FREE' ? 'FREE' : 'PAID';
-    return (
-      '<tr data-goto-month="' + escapeAttr(String(row.target_year_month || '').slice(5, 7)) + '">' +
-        '<td class="col-date">' + escapeHtml(mdDate(row.received_date)) + '</td>' +
-        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
-        '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
-        '<td class="col-billing">' + (billing === 'FREE'
-          ? '<span class="badge badge-muted">무상</span>'
-          : '<span class="badge badge-brand">유상</span>') + '</td>' +
-        '<td class="num col-money">' + fmt(row.supply_krw) + '</td>' +
-        '<td class="num col-money">' + fmt(row.vat_krw) + '</td>' +
-        '<td class="num col-money">' + fmt(row.amount_krw) + '</td>' +
-        '<td class="col-assignee">' + escapeHtml(row.assignee || '') + '</td>' +
-        '<td class="col-kind">' + (repeating ? '<span class="badge badge-brand">반복</span>' : '<span class="badge badge-muted">단건</span>') + '</td>' +
-      '</tr>'
-    );
-  }
-
-  /** 연간 보기: 한 달 그룹(접기/펴기) */
-  function monthGroupHtml(mm, rows, open) {
-    var sorted = rows.slice().sort(function (a, b) {
-      return String(a.received_date || '').localeCompare(String(b.received_date || ''));
-    });
-    var paid = 0;
-    var free = 0;
-    var amount = 0;
-    rows.forEach(function (r) {
-      if (r.billing_type === 'FREE') free += 1; else paid += 1;
-      amount += Number(r.amount_krw || 0);
-    });
-    var metaParts = [];
-    if (paid > 0) metaParts.push('유상 ' + paid + '건');
-    if (free > 0) metaParts.push('무상 ' + free + '건');
-    return (
-      '<section class="rev-month-group' + (open ? ' is-open' : '') + '" data-month="' + escapeAttr(mm) + '">' +
-        '<button type="button" class="rev-month-head" data-acc-toggle aria-expanded="' + (open ? 'true' : 'false') + '">' +
-          '<span class="rev-month-head-m">' + parseInt(mm, 10) + '월</span>' +
-          '<span class="rev-month-head-meta">' + escapeHtml(metaParts.join(' / ')) + '</span>' +
-          '<span class="rev-month-head-amt">합계 ' + fmt(amount) + '원</span>' +
-          '<svg class="rev-month-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
-        '</button>' +
-        '<div class="rev-month-body">' +
-          '<div class="table-wrap rev-table-wrap">' +
-            '<table class="table rev-year-table">' +
-              '<thead><tr>' +
-                '<th class="col-date">입금일</th><th class="col-project">프로젝트</th><th class="col-client">거래처</th><th class="col-billing">유상/무상</th>' +
-                '<th class="num col-money">공급가</th><th class="num col-money">부가세</th><th class="num col-money">합계</th>' +
-                '<th class="col-assignee">담당</th><th class="col-kind">구분</th>' +
-              '</tr></thead>' +
-              '<tbody>' + sorted.map(yearRowHtml).join('') + '</tbody>' +
-            '</table>' +
-          '</div>' +
-        '</div>' +
-      '</section>'
-    );
-  }
-
-  function renderYearIndex(rows, freeValueYear) {
+  function renderMonthCards(rows) {
+    if (!yearIndex) return;
     var year = currentYear();
-    var buckets = yearMonthBuckets(year, rows);
-    var supply = 0;
-    var vat = 0;
-    var total = 0;
-    var count = 0;
-    buckets.forEach(function (b) {
-      supply += b.supply_krw;
-      vat += b.vat_krw;
-      total += b.amount_krw;
-      count += b.paid_count; // 유상 합계 카드 건수 = 유상 건수만
-    });
-    if (yearIndex) yearIndex.innerHTML = buckets.map(function (b) { return yearCellHtml(year, b); }).join('');
-    setText('rev-year-supply', fmt(supply));
-    setText('rev-year-vat', fmt(vat));
-    setText('rev-year-total', fmt(total));
-    setText('rev-year-count', '총 ' + count + '건');
-    // 무상 제공은 금액이 0이라 건수로 집계한다
-    var freeCount = (rows || []).filter(function (r) {
-      return String(r.target_year_month || '').indexOf(year + '-') === 0 && r.billing_type === 'FREE';
-    }).length;
-    setText('rev-year-free', String(freeCount));
-    return buckets;
-  }
-
-  function renderYearGroups(rows) {
-    var yr = currentYear();
-    var yrRows = (rows || []).filter(function (r) {
-      if (String(r.target_year_month || '').indexOf(yr + '-') !== 0) return false;
-      if (yearFilter === 'PAID') return r.billing_type !== 'FREE';
-      if (yearFilter === 'FREE') return r.billing_type === 'FREE';
-      return true;
-    });
-    if (!yearGroups) return;
-    // 월별 그룹화
-    var groups = {};
-    yrRows.forEach(function (r) {
-      var mm = String(r.target_year_month || '').slice(5, 7);
-      if (!mm) return;
-      (groups[mm] = groups[mm] || []).push(r);
-    });
-    var months = Object.keys(groups).sort().reverse(); // 최근 달이 위로(내림차순)
-    if (!months.length) {
-      yearGroups.innerHTML = '<div class="rev-year-acc-empty">데이터가 없습니다.</div>';
-      if (yearEmpty) yearEmpty.hidden = true;
-      return;
-    }
-    // 기본 펼침: 당월(데이터 있으면), 없으면 가장 최근 달
-    var today = String(root.getAttribute('data-today') || '');
-    var curMm = today.length >= 7 ? today.slice(5, 7) : '';
-    var openMm = groups[curMm] ? curMm : months[0]; // 당월 없으면 가장 최근 달
-    yearGroups.innerHTML = '<div class="rev-year-acc">' +
-      months.map(function (mm) { return monthGroupHtml(mm, groups[mm], mm === openMm); }).join('') +
-      '</div>';
-    if (yearEmpty) yearEmpty.hidden = true;
-  }
-
-  /* 유상/무상 KPI 카드 활성 표시 */
-  function updateYearFilterUI() {
-    root.querySelectorAll('[data-year-filter]').forEach(function (el) {
-      el.classList.toggle('is-active', el.getAttribute('data-year-filter') === yearFilter);
-    });
+    yearIndex.innerHTML = monthCardBuckets(year, rows).map(function (bucket) {
+      return monthCardHtml(year, bucket);
+    }).join('');
   }
 
   function renderMonthTable(rows, freeValueMonth) {
@@ -658,14 +814,6 @@
     // 무상 제공은 금액이 0이라 건수로 집계한다
     var freeCount = (rows || []).filter(function (r) { return r.billing_type === 'FREE'; }).length;
     setText('rev-sum-free', String(freeCount));
-  }
-
-  function refreshYearIndex() {
-    fetchRows('?year=' + encodeURIComponent(currentYear()))
-      .then(function (data) {
-        renderYearIndex(data.rows || [], data.free_value_year || 0);
-      })
-      .catch(function () { /* 월 표는 유지 */ });
   }
 
   function renderTpl(rows) {
@@ -999,7 +1147,7 @@
       listBody.insertAdjacentHTML('afterbegin', html);
     }
     updateListSummary();
-    refreshYearIndex();
+    refreshMonthCards();
   }
 
   function saveRevModal() {
@@ -1375,39 +1523,54 @@
       }
       return;
     }
-    /* 유상 합계 / 무상 제공 카드 클릭 → 연간 목록을 해당 유형만 필터(다시 누르면 전체) */
-    var kpiFilter = e.target.closest('[data-year-filter]');
-    if (kpiFilter) {
-      var want = kpiFilter.getAttribute('data-year-filter');
-      yearFilter = (yearFilter === want) ? 'all' : want;
-      updateYearFilterUI();
-      if (isYearView()) {
-        renderYearGroups(yearRowsCache);
-      } else {
-        setPeriod(currentYear(), ''); // 연간 보기로 전환(loadList가 yearFilter 반영해 렌더)
+    var resetBtn = e.target.closest('[data-action="reset-filters"]');
+    if (resetBtn) {
+      resetFilters();
+      return;
+    }
+    var pickKind = pickKindFrom(e.target);
+    if (pickKind) {
+      if (e.target.closest('.select-search')) return;
+      var pickOpt = e.target.closest('.select-option');
+      if (pickOpt) {
+        setFilter(pickers[pickKind].key, pickOpt.getAttribute('data-value') || '');
+        closePickMenu(pickKind);
+        return;
+      }
+      if (e.target.closest('.select-trigger')) {
+        togglePickMenu(pickKind);
+        return;
+      }
+    }
+    var segmentBtn = e.target.closest('[data-rev-segment] button');
+    if (segmentBtn) {
+      var group = segmentBtn.closest('[data-rev-segment]');
+      setFilter(group.getAttribute('data-rev-segment'), segmentBtn.getAttribute('data-value') || '');
+      return;
+    }
+    var monthCardBtn = e.target.closest('[data-month-card]');
+    if (monthCardBtn) {
+      var picked = monthCardBtn.getAttribute('data-month-card') || '';
+      if (/^\d{2}$/.test(picked) && picked !== currentMonth()) {
+        root.setAttribute('data-month', picked);
+        syncUrl();
+        syncMode();
+        renderMonthCards(monthCardRows);
+        loadMonthTable();
       }
       return;
     }
     var gotoMonth = e.target.closest('[data-goto-month]');
     if (gotoMonth) {
       var next = gotoMonth.getAttribute('data-goto-month') || '';
-      if (gotoMonth.classList.contains('rev-year-cell') && currentMonth() === next) {
-        next = '';
+      if (/^\d{2}$/.test(next)) {
+        root.setAttribute('data-month', next);
+        activateTab('month');
       }
-      setPeriod(currentYear(), next);
-      return;
-    }
-    var yearView = e.target.closest('[data-action="year-view"]');
-    if (yearView) {
-      if (!isYearView()) setPeriod(currentYear(), '');
       return;
     }
     var add = e.target.closest('[data-action="add-row"]');
     if (add) {
-      if (isYearView()) {
-        toast('달을 고르세요', '연간 보기에서는 줄을 추가할 수 없습니다.', 'danger');
-        return;
-      }
       if (isViewLocked()) {
         toast('수정할 수 없습니다', '전전월 이전은 볼 수만 있습니다.', 'danger');
         return;
@@ -1439,7 +1602,7 @@
         .then(function () {
           tr.remove();
           updateListSummary();
-          refreshYearIndex();
+          refreshMonthCards();
         })
         .catch(function (err) { toast('삭제 실패', err.message, 'danger'); });
       return;
@@ -1544,22 +1707,62 @@
     if (e.key !== 'Escape') return;
     if (revModal && !revModal.hidden) closeRevModal();
     if (tplModal && !tplModal.hidden) closeTplModal();
+    closeAllPickMenus();
+  });
+
+  root.addEventListener('input', function (e) {
+    if (!e.target) return;
+    Object.keys(pickers).forEach(function (kind) {
+      if (e.target.id === pickers[kind].search) filterPickMenu(kind, e.target.value);
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    Object.keys(pickers).forEach(function (kind) {
+      var box = document.getElementById(pickers[kind].box);
+      if (box && !box.contains(e.target)) closePickMenu(kind);
+    });
   });
 
   root.addEventListener('select:change', function (e) {
-    if (!e.target.closest('[data-rev-year]')) return;
-    var y = yearEl ? String(yearEl.value || '').trim() : '';
-    if (!/^\d{4}$/.test(y)) return;
-    setPeriod(y, '');
+    var yearSelect = e.target.closest('[data-rev-year]');
+    if (yearSelect) {
+      var yearHidden = yearSelect.querySelector('input[type="hidden"]');
+      var y = yearHidden ? String(yearHidden.value || '').trim() : '';
+      if (!/^\d{4}$/.test(y)) return;
+      root.setAttribute('data-year', y);
+      syncYearSelects(y);
+      syncUrl();
+      if (currentTab() === 'month' || currentTab() === 'year') loadList();
+      return;
+    }
+    if (e.target.closest('#rev-service-wrap')) {
+      var serviceHidden = document.getElementById('rev-service');
+      setFilter('service', serviceHidden ? serviceHidden.value : '');
+    }
   });
 
   var tabs = root.querySelector('[data-tabs]');
   if (tabs) {
     tabs.addEventListener('tab:change', function (e) {
-      if (e.detail && e.detail.tab === 'tpl' && !tplLoaded) loadTpl();
+      var tab = e.detail && e.detail.tab;
+      if (tab !== 'month' && tab !== 'year' && tab !== 'tpl') return;
+      root.setAttribute('data-tab', tab);
+      if (tab === 'month' && !currentMonth()) {
+        var mm = defaultMonth(currentYear());
+        root.setAttribute('data-month', mm);
+      }
+      syncUrl();
+      syncMode();
+      if (tab === 'tpl') {
+        if (!tplLoaded) loadTpl();
+        return;
+      }
+      loadList();
     });
   }
 
   syncMode();
-  loadList();
+  if (currentTab() === 'tpl') loadTpl();
+  else loadList();
 })();

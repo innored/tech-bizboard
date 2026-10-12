@@ -34,6 +34,7 @@ require_once __DIR__ . '/ExpenseTemplateProvider.php';
 require_once __DIR__ . '/DraftExpenseProvider.php';
 require_once __DIR__ . '/RevenueTemplateProvider.php';
 require_once __DIR__ . '/TeamRevenueProvider.php';
+require_once __DIR__ . '/RevenueListQuery.php';
 require_once __DIR__ . '/DashboardProvider.php';
 
 function tbb_root(): string

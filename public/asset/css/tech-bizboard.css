@@ -1004,7 +1004,28 @@ html, body, input, button, select, textarea {
 .rev-year-field { margin: 0; }
 .rev-year-field .select { width: 128px; }
 .rev-year-field .select-trigger { height: 36px; }
-.rev-toolbar #rev-year-view { height: 36px; }
+.rev-filters {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+.rev-filters .field,
+.rev-filters .field + .field { margin: 0; }
+.rev-filters .rev-year-field { flex: none; }
+.rev-filter-client .select { width: 180px; }
+.rev-filter-solution .select { width: 220px; }
+.rev-filter-svc .select { width: 168px; }
+.rev-filter-client .select-trigger,
+.rev-filter-svc .select-trigger,
+.rev-filter-solution .select-trigger,
+.rev-filters .btn { height: 36px; }
+.rev-filters .btn-icon { width: 36px; padding: 0; }
+.rev-filters .btn-icon svg { width: 16px; height: 16px; }
+.rev-year-table .col-svc { min-width: 5.5rem; }
 .rev-year-kpis {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -1171,6 +1192,24 @@ html, body, input, button, select, textarea {
 }
 .rev-page #rev-list-table tfoot .num,
 .rev-page #rev-tpl-table tfoot .num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.rev-page #rev-year-table .rev-year-total td {
+  padding-top: 10px;
+  padding-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-800);
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--ink-200);
+}
+.rev-page #rev-year-table .rev-year-total .rev-total-label {
+  text-align: right;
+  color: var(--ink-500);
+  font-weight: 600;
+}
+.rev-page #rev-year-table .rev-year-total .num {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }

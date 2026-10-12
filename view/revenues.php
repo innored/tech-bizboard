@@ -13,9 +13,17 @@ $SHOW_NAV = true;
 $NAV = 'revenues';
 $year = (string) ($year ?? '');
 $month = (string) ($month ?? '');
+$tab = (string) ($tab ?? ($month !== '' ? 'month' : 'year'));
+$filters = is_array($filters ?? null) ? $filters : ['client' => '', 'service' => '', 'solution' => '', 'billing' => '', 'kind' => ''];
 $years = is_array($years ?? null) ? $years : DashboardProvider::yearOptions();
 $today = (string) ($today ?? tbb_today());
-$isYearView = $month === '';
+$clientFilter = (string) ($filters['client'] ?? '');
+$clientLabel = $clientFilter === '' ? '거래처 전체' : ($clientFilter === RevenueListQuery::CLIENT_NONE ? '거래처 미지정' : $clientFilter);
+$serviceFilter = (string) ($filters['service'] ?? '');
+$solutionFilter = (string) ($filters['solution'] ?? '');
+$solutionLabel = $solutionFilter === '' ? '솔루션 전체' : ($solutionFilter === RevenueListQuery::CLIENT_NONE ? '솔루션 미지정' : $solutionFilter);
+$billingFilter = (string) ($filters['billing'] ?? '');
+$kindFilter = (string) ($filters['kind'] ?? '');
 $solutions = tbb_solutions();
 $solutionMap = array_column($solutions, 'id', 'name'); // name → client_id (직접입력 시 id 매칭용)
 
@@ -29,6 +37,12 @@ require __DIR__ . '/_header.php';
     data-tpl-api="api/revenue_templates"
     data-year="<?= h($year) ?>"
     data-month="<?= h($month) ?>"
+    data-tab="<?= h($tab) ?>"
+    data-client="<?= h($clientFilter) ?>"
+    data-service="<?= h($serviceFilter) ?>"
+    data-solution="<?= h($solutionFilter) ?>"
+    data-billing="<?= h($billingFilter) ?>"
+    data-kind="<?= h($kindFilter) ?>"
     data-today="<?= h($today) ?>"
     data-editable-from="<?= tbb_is_admin() ? '' : h(tbb_previous_month()) ?>"
     data-solutions="<?= h(json_encode($solutionMap, JSON_UNESCAPED_UNICODE)) ?>"
@@ -40,11 +54,12 @@ require __DIR__ . '/_header.php';
 
     <div class="tabs" data-tabs>
       <div class="tab-list" role="tablist" aria-label="수입">
-        <button class="tab is-active" type="button" data-tab="list">목록</button>
-        <button class="tab" type="button" data-tab="tpl">반복 설정</button>
+        <button class="tab<?= $tab === 'month' ? ' is-active' : '' ?>" type="button" data-tab="month">월별</button>
+        <button class="tab<?= $tab === 'year' ? ' is-active' : '' ?>" type="button" data-tab="year">연간</button>
+        <button class="tab<?= $tab === 'tpl' ? ' is-active' : '' ?>" type="button" data-tab="tpl">반복 설정</button>
       </div>
       <div class="tab-panels">
-        <div class="tab-panel is-active" data-panel="list" role="tabpanel">
+        <div class="tab-panel<?= $tab === 'month' ? ' is-active' : '' ?>" data-panel="month" role="tabpanel">
           <div class="rev-toolbar">
             <div class="field rev-year-field">
               <label class="label sr-only" for="rev-year-trigger">연도</label>
@@ -62,36 +77,9 @@ require __DIR__ . '/_header.php';
                 </ul>
               </div>
             </div>
-            <button
-              class="btn btn-sm<?= $isYearView ? ' btn-secondary' : ' btn-outline' ?>"
-              type="button"
-              data-action="year-view"
-              id="rev-year-view"
-              aria-pressed="<?= $isYearView ? 'true' : 'false' ?>"
-            >연간 보기</button>
-          </div>
-          <div class="rev-year-kpis" aria-label="연간 요약">
-            <article class="rev-year-kpi rev-year-paid is-total" data-year-filter="PAID" role="button" tabindex="0" title="유상만 보기">
-              <div class="rev-year-paid-main">
-                <span class="rev-year-kpi-label">유상 합계</span>
-                <strong class="rev-year-kpi-amt"><span id="rev-year-total">0</span><span class="unit">원</span></strong>
-                <span class="rev-year-kpi-n" id="rev-year-count">총 0건</span>
-              </div>
-              <div class="rev-year-sub">
-                <span class="rev-year-sub-row"><span class="rev-year-sub-label">공급가</span><span class="rev-year-sub-amt"><span id="rev-year-supply">0</span>원</span></span>
-                <span class="rev-year-sub-row"><span class="rev-year-sub-label">부가세</span><span class="rev-year-sub-amt"><span id="rev-year-vat">0</span>원</span></span>
-              </div>
-            </article>
-            <article class="rev-year-kpi rev-year-free-block" data-year-filter="FREE" role="button" tabindex="0" title="무상만 보기">
-              <span class="rev-year-kpi-label">무상 제공</span>
-              <strong class="rev-year-kpi-amt"><span id="rev-year-free">0</span><span class="unit">건</span></strong>
-            </article>
           </div>
           <div class="rev-year-index" id="rev-year-index" aria-label="월별 수입"></div>
-          <div class="card rev-card rev-year-wrap" id="rev-year-wrap"<?= $isYearView ? '' : ' hidden' ?>>
-            <div class="rev-year-groups" id="rev-year-groups"></div>
-          </div>
-          <div class="card rev-card" id="rev-month-card"<?= $isYearView ? ' hidden' : '' ?>>
+          <div class="card rev-card" id="rev-month-card">
             <div class="rev-card-head">
               <p class="eyebrow">수입 목록</p>
               <span class="rev-card-lock" id="rev-month-lock" hidden title="잠긴 달" aria-label="잠긴 달">
@@ -105,7 +93,6 @@ require __DIR__ . '/_header.php';
                   type="button"
                   data-action="add-row"
                   id="rev-add-row"
-                  <?= $isYearView ? 'disabled' : '' ?>
                 >+ 추가</button>
               </div>
             </div>
@@ -152,7 +139,129 @@ require __DIR__ . '/_header.php';
           </div>
           </div>
         </div>
-        <div class="tab-panel" data-panel="tpl" role="tabpanel">
+        <div class="tab-panel<?= $tab === 'year' ? ' is-active' : '' ?>" data-panel="year" role="tabpanel">
+          <div class="rev-toolbar">
+            <div class="rev-filters" aria-label="연간 필터">
+              <div class="field rev-year-field">
+                <label class="label sr-only" for="rev-year-annual-trigger">연도</label>
+                <div class="select" data-select data-rev-year>
+                  <button type="button" class="select-trigger" id="rev-year-annual-trigger" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="select-value"><?= h($year) ?>년</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <input type="hidden" id="rev-year-annual" value="<?= h($year) ?>" />
+                  <ul class="select-menu" role="listbox">
+                    <?php foreach ($years as $y): ?>
+                      <?php $y = (int) $y; ?>
+                      <li class="select-option<?= (string) $y === $year ? ' is-selected' : '' ?>" data-value="<?= h((string) $y) ?>"><?= h((string) $y) ?>년</li>
+                    <?php endforeach; ?>
+                  </ul>
+                </div>
+              </div>
+              <div class="field rev-filter-client">
+                <div class="select rev-client-select" id="rev-client-select">
+                  <button type="button" class="select-trigger" id="rev-client-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="거래처">
+                    <span class="select-value"><?= h($clientLabel) ?></span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <ul class="select-menu" id="rev-client-menu" role="listbox"></ul>
+                </div>
+              </div>
+              <div class="field rev-filter-svc">
+                <div class="select" data-select id="rev-service-wrap">
+                  <button type="button" class="select-trigger" id="rev-service-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="서비스구분">
+                    <span class="select-value"><?= h($serviceFilter === '' ? '서비스구분 전체' : $serviceFilter) ?></span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <input type="hidden" id="rev-service" value="<?= h($serviceFilter) ?>" />
+                  <ul class="select-menu" role="listbox">
+                    <li class="select-option<?= $serviceFilter === '' ? ' is-selected' : '' ?>" data-value="">서비스구분 전체</li>
+                    <?php foreach (RevenueListQuery::SERVICES as $svc): ?>
+                      <li class="select-option<?= $serviceFilter === $svc ? ' is-selected' : '' ?>" data-value="<?= h($svc) ?>"><?= h($svc) ?></li>
+                    <?php endforeach; ?>
+                  </ul>
+                </div>
+              </div>
+              <div class="field rev-filter-solution">
+                <div class="select" id="rev-solution-select">
+                  <button type="button" class="select-trigger" id="rev-solution-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="솔루션">
+                    <span class="select-value"><?= h($solutionLabel) ?></span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <ul class="select-menu" id="rev-solution-menu" role="listbox"></ul>
+                </div>
+              </div>
+              <div class="field">
+                <div class="segmented" data-rev-segment="billing" role="group" aria-label="유상/무상">
+                  <button type="button" data-value="" class="<?= $billingFilter === '' ? 'is-active' : '' ?>">전체</button>
+                  <button type="button" data-value="PAID" class="<?= $billingFilter === 'PAID' ? 'is-active' : '' ?>">유상</button>
+                  <button type="button" data-value="FREE" class="<?= $billingFilter === 'FREE' ? 'is-active' : '' ?>">무상</button>
+                </div>
+              </div>
+              <div class="field">
+                <div class="segmented" data-rev-segment="kind" role="group" aria-label="구분">
+                  <button type="button" data-value="" class="<?= $kindFilter === '' ? 'is-active' : '' ?>">전체</button>
+                  <button type="button" data-value="repeat" class="<?= $kindFilter === 'repeat' ? 'is-active' : '' ?>">반복</button>
+                  <button type="button" data-value="once" class="<?= $kindFilter === 'once' ? 'is-active' : '' ?>">단건</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-icon btn-sm tooltip tooltip-bottom" data-action="reset-filters" aria-label="필터 초기화" data-tooltip="필터 초기화">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="rev-year-kpis" aria-label="연간 요약">
+            <article class="rev-year-kpi rev-year-paid is-total">
+              <div class="rev-year-paid-main">
+                <span class="rev-year-kpi-label">유상 합계</span>
+                <strong class="rev-year-kpi-amt"><span id="rev-year-total">0</span><span class="unit">원</span></strong>
+                <span class="rev-year-kpi-n" id="rev-year-count">총 0건</span>
+              </div>
+              <div class="rev-year-sub">
+                <span class="rev-year-sub-row"><span class="rev-year-sub-label">공급가</span><span class="rev-year-sub-amt"><span id="rev-year-supply">0</span>원</span></span>
+                <span class="rev-year-sub-row"><span class="rev-year-sub-label">부가세</span><span class="rev-year-sub-amt"><span id="rev-year-vat">0</span>원</span></span>
+              </div>
+            </article>
+            <article class="rev-year-kpi rev-year-free-block">
+              <span class="rev-year-kpi-label">무상 제공</span>
+              <strong class="rev-year-kpi-amt"><span id="rev-year-free">0</span><span class="unit">건</span></strong>
+            </article>
+          </div>
+          <div class="card rev-card rev-year-wrap" id="rev-year-wrap">
+            <div class="table-wrap rev-table-wrap">
+              <table class="table rev-year-table" id="rev-year-table">
+                <thead>
+                  <tr>
+                    <th class="col-date">입금일</th>
+                    <th class="col-project">프로젝트</th>
+                    <th class="col-client">거래처</th>
+                    <th class="col-svc">서비스구분</th>
+                    <th class="col-billing">유상/무상</th>
+                    <th class="num col-money">공급가</th>
+                    <th class="num col-money">부가세</th>
+                    <th class="num col-money">합계</th>
+                    <th class="col-assignee">담당</th>
+                    <th class="col-kind">구분</th>
+                  </tr>
+                  <tr id="rev-year-total" class="rev-year-total">
+                    <td class="col-date"></td>
+                    <td class="col-project rev-total-label">연간 총계</td>
+                    <td class="col-client"></td>
+                    <td class="col-svc"></td>
+                    <td class="col-billing"></td>
+                    <td class="num col-money" id="rev-year-foot-supply">0</td>
+                    <td class="num col-money" id="rev-year-foot-vat">0</td>
+                    <td class="num col-money" id="rev-year-foot-amount">0</td>
+                    <td class="col-assignee"></td>
+                    <td class="col-kind"></td>
+                  </tr>
+                </thead>
+                <tbody id="rev-year-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="tab-panel<?= $tab === 'tpl' ? ' is-active' : '' ?>" data-panel="tpl" role="tabpanel">
           <div class="card rev-card">
             <div class="rev-card-head">
               <p class="eyebrow">반복 설정</p>
