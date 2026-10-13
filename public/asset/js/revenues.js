@@ -32,7 +32,7 @@
     service: root.getAttribute('data-service') || '',
     solution: root.getAttribute('data-solution') || '',
     billing: root.getAttribute('data-billing') || '',
-    kind: root.getAttribute('data-kind') || ''
+    kind: ''
   }) : { client: '', service: '', solution: '', billing: '', kind: '' };
   var pickers = {
     client: {
@@ -169,7 +169,6 @@
     if (filters.service) params.set('service', filters.service);
     if (filters.solution) params.set('solution', filters.solution);
     if (filters.billing) params.set('billing', filters.billing);
-    if (filters.kind) params.set('kind', filters.kind);
     history.replaceState(null, '', '?' + params.toString());
     root.setAttribute('data-year', currentYear());
     root.setAttribute('data-month', month);
@@ -637,13 +636,11 @@
     if (label) label.textContent = text;
   }
 
-  function syncSegments() {
-    root.querySelectorAll('[data-rev-segment]').forEach(function (group) {
-      var key = group.getAttribute('data-rev-segment');
-      var value = filters[key] || '';
-      group.querySelectorAll('button').forEach(function (btn) {
-        btn.classList.toggle('is-active', (btn.getAttribute('data-value') || '') === value);
-      });
+  function syncBillingCards() {
+    root.querySelectorAll('[data-year-filter]').forEach(function (card) {
+      var on = card.getAttribute('data-year-filter') === (filters.billing || '');
+      card.classList.toggle('is-active', on);
+      card.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
 
@@ -656,7 +653,6 @@
     closeAllPickMenus();
     reconcilePickFilters();
     syncServiceSelect();
-    syncSegments();
     if (currentTab() === 'year') renderAnnual();
   }
 
@@ -677,16 +673,33 @@
     if (currentTab() === 'year') renderAnnual();
   }
 
+  /* 카드 금액은 거래처·서비스·솔루션만 반영한다. 유상/무상은 목록만 거른다. */
   function renderAnnual() {
-    var rows = yearFilterApi ? yearFilterApi.filterRows(yearRowsCache, filters) : yearRowsCache;
+    var listFilters = {
+      client: filters.client,
+      service: filters.service,
+      solution: filters.solution,
+      billing: filters.billing,
+      kind: ''
+    };
+    var cardFilters = {
+      client: filters.client,
+      service: filters.service,
+      solution: filters.solution,
+      billing: '',
+      kind: ''
+    };
+    var rows = yearFilterApi ? yearFilterApi.filterRows(yearRowsCache, listFilters) : yearRowsCache;
+    var cardRows = yearFilterApi ? yearFilterApi.filterRows(yearRowsCache, cardFilters) : yearRowsCache;
     var sum = yearFilterApi
-      ? yearFilterApi.summarize(rows)
+      ? yearFilterApi.summarize(cardRows)
       : { supply_krw: 0, vat_krw: 0, amount_krw: 0, paid_count: 0, free_count: 0 };
     setText('rev-year-supply', fmt(sum.supply_krw));
     setText('rev-year-vat', fmt(sum.vat_krw));
     setText('rev-year-total', fmt(sum.amount_krw));
     setText('rev-year-count', '총 ' + sum.paid_count + '건');
     setText('rev-year-free', String(sum.free_count));
+    syncBillingCards();
     renderYearTable(rows);
   }
 
@@ -1542,10 +1555,10 @@
         return;
       }
     }
-    var segmentBtn = e.target.closest('[data-rev-segment] button');
-    if (segmentBtn) {
-      var group = segmentBtn.closest('[data-rev-segment]');
-      setFilter(group.getAttribute('data-rev-segment'), segmentBtn.getAttribute('data-value') || '');
+    var billingCard = e.target.closest('[data-year-filter]');
+    if (billingCard) {
+      var billing = billingCard.getAttribute('data-year-filter') || '';
+      setFilter('billing', filters.billing === billing ? '' : billing);
       return;
     }
     var monthCardBtn = e.target.closest('[data-month-card]');

@@ -116,12 +116,9 @@ require __DIR__ . '/_header.php';
                   <th class="col-receipts">증빙</th>
                   <th class="col-actions">액션</th>
                 </tr>
-              </thead>
-              <tbody id="rev-list-body"></tbody>
-              <tfoot>
-                <tr>
+                <tr class="rev-month-total">
                   <td class="col-date"></td>
-                  <td class="col-project rev-total-label">해당 월 총계</td>
+                  <td class="col-project rev-total-label">당월 총계</td>
                   <td class="col-client"></td>
                   <td class="col-svc"></td>
                   <td class="col-billing"></td>
@@ -134,7 +131,8 @@ require __DIR__ . '/_header.php';
                   <td class="col-receipts"></td>
                   <td class="col-actions"></td>
                 </tr>
-              </tfoot>
+              </thead>
+              <tbody id="rev-list-body"></tbody>
             </table>
           </div>
           </div>
@@ -191,27 +189,13 @@ require __DIR__ . '/_header.php';
                   <ul class="select-menu" id="rev-solution-menu" role="listbox"></ul>
                 </div>
               </div>
-              <div class="field">
-                <div class="segmented" data-rev-segment="billing" role="group" aria-label="유상/무상">
-                  <button type="button" data-value="" class="<?= $billingFilter === '' ? 'is-active' : '' ?>">전체</button>
-                  <button type="button" data-value="PAID" class="<?= $billingFilter === 'PAID' ? 'is-active' : '' ?>">유상</button>
-                  <button type="button" data-value="FREE" class="<?= $billingFilter === 'FREE' ? 'is-active' : '' ?>">무상</button>
-                </div>
-              </div>
-              <div class="field">
-                <div class="segmented" data-rev-segment="kind" role="group" aria-label="구분">
-                  <button type="button" data-value="" class="<?= $kindFilter === '' ? 'is-active' : '' ?>">전체</button>
-                  <button type="button" data-value="repeat" class="<?= $kindFilter === 'repeat' ? 'is-active' : '' ?>">반복</button>
-                  <button type="button" data-value="once" class="<?= $kindFilter === 'once' ? 'is-active' : '' ?>">단건</button>
-                </div>
-              </div>
               <button type="button" class="btn btn-outline btn-icon btn-sm tooltip tooltip-bottom" data-action="reset-filters" aria-label="필터 초기화" data-tooltip="필터 초기화">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               </button>
             </div>
           </div>
           <div class="rev-year-kpis" aria-label="연간 요약">
-            <article class="rev-year-kpi rev-year-paid is-total">
+            <button type="button" class="rev-year-kpi rev-year-paid is-total<?= $billingFilter === 'PAID' ? ' is-active' : '' ?>" data-year-filter="PAID" aria-pressed="<?= $billingFilter === 'PAID' ? 'true' : 'false' ?>">
               <div class="rev-year-paid-main">
                 <span class="rev-year-kpi-label">유상 합계</span>
                 <strong class="rev-year-kpi-amt"><span id="rev-year-total">0</span><span class="unit">원</span></strong>
@@ -221,11 +205,11 @@ require __DIR__ . '/_header.php';
                 <span class="rev-year-sub-row"><span class="rev-year-sub-label">공급가</span><span class="rev-year-sub-amt"><span id="rev-year-supply">0</span>원</span></span>
                 <span class="rev-year-sub-row"><span class="rev-year-sub-label">부가세</span><span class="rev-year-sub-amt"><span id="rev-year-vat">0</span>원</span></span>
               </div>
-            </article>
-            <article class="rev-year-kpi rev-year-free-block">
+            </button>
+            <button type="button" class="rev-year-kpi rev-year-free-block<?= $billingFilter === 'FREE' ? ' is-active' : '' ?>" data-year-filter="FREE" aria-pressed="<?= $billingFilter === 'FREE' ? 'true' : 'false' ?>">
               <span class="rev-year-kpi-label">무상 제공</span>
               <strong class="rev-year-kpi-amt"><span id="rev-year-free">0</span><span class="unit">건</span></strong>
-            </article>
+            </button>
           </div>
           <div class="card rev-card rev-year-wrap" id="rev-year-wrap">
             <div class="table-wrap rev-table-wrap">

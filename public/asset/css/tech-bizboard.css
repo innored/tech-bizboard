@@ -1009,13 +1009,14 @@ html, body, input, button, select, textarea {
   flex: 1;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   margin: 0;
   min-width: 0;
 }
 .rev-filters .field,
 .rev-filters .field + .field { margin: 0; }
-.rev-filters .rev-year-field { flex: none; }
+.rev-filters .rev-year-field { flex: none; margin-right: auto; }
 .rev-filter-client .select { width: 180px; }
 .rev-filter-solution .select { width: 220px; }
 .rev-filter-svc .select { width: 168px; }
@@ -1079,7 +1080,16 @@ html, body, input, button, select, textarea {
   border-color: var(--brand-200);
 }
 /* 유상/무상 KPI 카드: 클릭하면 연간 목록 필터 */
+button.rev-year-kpi {
+  appearance: none;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .rev-year-kpi[data-year-filter] { cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.rev-year-kpi[data-year-filter]:focus-visible { outline: none; box-shadow: var(--sh-focus); }
 .rev-year-kpi[data-year-filter]:hover { border-color: var(--brand-400); }
 .rev-year-kpi[data-year-filter].is-active {
   border-color: var(--brand-600);
@@ -1164,11 +1174,11 @@ html, body, input, button, select, textarea {
   font-weight: 600;
   color: var(--ink-400);
 }
-.rev-page #rev-list-table tfoot tr,
+.rev-page #rev-list-table .rev-month-total,
 .rev-page #rev-tpl-table tfoot tr {
   background: var(--bg-page);
 }
-.rev-page #rev-list-table tfoot td,
+.rev-page #rev-list-table .rev-month-total td,
 .rev-page #rev-tpl-table tfoot td {
   padding-top: 10px;
   padding-bottom: 8px;
@@ -1176,21 +1186,26 @@ html, body, input, button, select, textarea {
   font-weight: 700;
   color: var(--ink-800);
   background: var(--bg-page);
+}
+.rev-page #rev-tpl-table tfoot td {
   border-top: 1px solid var(--ink-200);
 }
-.rev-page #rev-list-table tfoot td.col-actions,
+.rev-page #rev-list-table .rev-month-total td {
+  border-bottom: 1px solid var(--ink-200);
+}
+.rev-page #rev-list-table .rev-month-total td.col-actions,
 .rev-page #rev-tpl-table tfoot td.col-actions {
   display: table-cell;
   background: var(--bg-page);
   box-shadow: none;
 }
-.rev-page #rev-list-table tfoot .rev-total-label,
+.rev-page #rev-list-table .rev-month-total .rev-total-label,
 .rev-page #rev-tpl-table tfoot .rev-total-label {
   text-align: right;
   color: var(--ink-500);
   font-weight: 600;
 }
-.rev-page #rev-list-table tfoot .num,
+.rev-page #rev-list-table .rev-month-total .num,
 .rev-page #rev-tpl-table tfoot .num {
   font-variant-numeric: tabular-nums;
   text-align: right;
