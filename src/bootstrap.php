@@ -163,7 +163,7 @@ function tbb_config(): array
             'redirect_uri'  => $env('SSO_REDIRECT_URI', ''),
             'home_url'      => $env('SSO_HOME_URL', ''),
         ],
-        // 리더십 페이지 접속 허용 IP(쉼표 구분, CIDR 가능). 비면 아무도 못 연다.
+        // 리더십 페이지 접속 허용 IP(쉼표 구분, CIDR 가능). 비우면 IP 제한 없이 SSO 로그인·역할로만 막는다.
         'leadership_allow_ips' => $env('LEADERSHIP_ALLOW_IPS'),
     ];
 }
@@ -459,14 +459,14 @@ function tbb_safe_return_path(string $path): string
 
 /**
  * 리더십 페이지 접근 판정. 순서: IP → 로그인 → 역할.
- * 허용 IP가 아니면 로그인 화면도 보여주지 않는다. 역할은 admin·member·viewer·leadership 중 하나면 된다.
+ * 허용 IP 목록이 비면 IP 검사는 건너뛴다. 목록이 있으면 허용 IP가 아닐 때 로그인 화면도 보여주지 않는다. 역할은 admin·member·viewer·leadership 중 하나면 된다.
  *
  * @param array<string, mixed>|null $user
  * @return 'forbidden_ip'|'login'|'forbidden_role'|'ok'
  */
 function tbb_leadership_decide(?array $user, IpAllowList $ips, string $ip): string
 {
-    if (!$ips->allows($ip)) {
+    if (!$ips->isEmpty() && !$ips->allows($ip)) {
         return 'forbidden_ip';
     }
     if ($user === null) {
@@ -487,7 +487,7 @@ function tbb_leadership_guard(): SsoHandler
     $sso = tbb_sso();
     $ips = IpAllowList::fromString((string) (tbb_config()['leadership_allow_ips'] ?? ''));
     $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-    if (!$ips->allows($ip)) {
+    if (!$ips->isEmpty() && !$ips->allows($ip)) {
         tbb_render_forbidden(
             '사내 네트워크에서만 열립니다',
             '사무실 네트워크나 VPN에 연결한 뒤 다시 열어 주세요.',

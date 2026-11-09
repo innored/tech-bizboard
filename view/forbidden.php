@@ -30,7 +30,7 @@ $FORBIDDEN_ACTION_LABEL = (string) ($FORBIDDEN_ACTION_LABEL ?? '');
       <p class="login-mark">TechBizBoard</p>
       <p class="login-kicker">테크본부</p>
       <h1 id="forbidden-title" class="login-title">테크본부<br />수익 리포트</h1>
-      <p class="login-lead">허용된 네트워크와 계정에서만 볼 수 있는 페이지입니다.</p>
+      <p class="login-lead">권한이 있는 계정으로 로그인해야 볼 수 있는 페이지입니다.</p>
     </section>
     <aside class="login-dock">
       <div class="login-dock-inner">

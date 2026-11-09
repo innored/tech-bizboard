@@ -1,7 +1,7 @@
 <?php
 /**
  * 접속 IP 허용 목록. 단일 IP와 CIDR 대역(IPv4·IPv6)을 받는다.
- * 목록이 비면 아무도 허용하지 않는다(설정 누락으로 페이지가 열리지 않게).
+ * allows()는 목록이 비면 아무도 허용하지 않는다. '제한 없음'으로 쓸지는 호출하는 쪽이 isEmpty()로 정한다.
  *
  * @date 2026-11-09
  * @link https://lucy.conbus.co.kr/tech-bizboard/src/IpAllowList.php
@@ -28,6 +28,11 @@ final class IpAllowList
     public function rules(): array
     {
         return $this->rules;
+    }
+
+    public function isEmpty(): bool
+    {
+        return $this->rules === [];
     }
 
     public function allows(string $ip): bool

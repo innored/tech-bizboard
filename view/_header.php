@@ -41,7 +41,7 @@ $navItems = [
     ['href' => 'revenues',   'label' => '매출(수입)',     'key' => 'revenues'],
     ['href' => 'api-usage',  'label' => 'API 사용량', 'key' => 'api_usage'],
     ['href' => 'settings',   'label' => '설정',     'key' => 'settings'],
-    // 리더십 공유 페이지: 상단 메뉴가 없는 화면이라 새 탭으로 연다(허용 IP에서만 열림)
+    // 리더십 공유 페이지: 상단 메뉴가 없는 화면이라 새 탭으로 연다
     ['href' => 'leadership', 'label' => '리더십 리포트', 'key' => 'leadership', 'new_tab' => true],
 ];
 if (!tbb_is_admin()) {
@@ -70,7 +70,7 @@ if (!tbb_is_admin()) {
   <?php if ($SHOW_NAV): ?>
   <nav class="app-nav" aria-label="주요 메뉴">
     <?php foreach ($navItems as $item): ?>
-      <a href="<?= h($item['href']) ?>"<?= $NAV === $item['key'] ? ' class="is-active" aria-current="page"' : '' ?><?= !empty($item['new_tab']) ? ' target="_blank" rel="noopener" title="새 탭에서 열림 · 사내망에서만 열립니다"' : '' ?>><?= h($item['label']) ?><?php if (!empty($item['new_tab'])): ?><svg class="app-nav-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg><?php endif; ?></a>
+      <a href="<?= h($item['href']) ?>"<?= $NAV === $item['key'] ? ' class="is-active" aria-current="page"' : '' ?><?= !empty($item['new_tab']) ? ' target="_blank" rel="noopener" title="새 탭에서 열림"' : '' ?>><?= h($item['label']) ?><?php if (!empty($item['new_tab'])): ?><svg class="app-nav-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg><?php endif; ?></a>
     <?php endforeach; ?>
   </nav>
   <div class="app-header-actions">
@@ -103,7 +103,7 @@ if (!tbb_is_admin()) {
   <div class="nav-sheet" id="nav-sheet">
     <nav class="sheet-nav" aria-label="모바일 메뉴">
       <?php foreach ($navItems as $item): ?>
-        <a href="<?= h($item['href']) ?>"<?= $NAV === $item['key'] ? ' class="is-active" aria-current="page"' : '' ?><?= !empty($item['new_tab']) ? ' target="_blank" rel="noopener" title="새 탭에서 열림 · 사내망에서만 열립니다"' : '' ?>><?= h($item['label']) ?><?php if (!empty($item['new_tab'])): ?><svg class="app-nav-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg><?php endif; ?></a>
+        <a href="<?= h($item['href']) ?>"<?= $NAV === $item['key'] ? ' class="is-active" aria-current="page"' : '' ?><?= !empty($item['new_tab']) ? ' target="_blank" rel="noopener" title="새 탭에서 열림"' : '' ?>><?= h($item['label']) ?><?php if (!empty($item['new_tab'])): ?><svg class="app-nav-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg><?php endif; ?></a>
       <?php endforeach; ?>
     </nav>
   </div>

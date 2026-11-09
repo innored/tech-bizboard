@@ -22,7 +22,10 @@ expect_eq(tbb_leadership_decide(['roles' => ['viewer']], $ips, '203.0.113.5'), '
 expect_eq(tbb_leadership_decide(['roles' => ['ADMIN']], $ips, '203.0.113.5'), 'ok', 'admin 허용(대소문자 무시)');
 expect_eq(tbb_leadership_decide(['roles' => []], $ips, '203.0.113.5'), 'forbidden_role', '역할 없는 계정 거부');
 expect_eq(tbb_leadership_decide(['roles' => ['guest']], $ips, '203.0.113.5'), 'forbidden_role', '모르는 역할 거부');
-expect_eq(tbb_leadership_decide($member, IpAllowList::fromString(''), '203.0.113.5'), 'forbidden_ip', '허용 목록이 비면 거부');
+$open = IpAllowList::fromString('');
+expect_eq(tbb_leadership_decide($member, $open, '198.51.100.7'), 'ok', '허용 목록이 비면 IP 제한 없음(SSO·역할만 검사)');
+expect_eq(tbb_leadership_decide(null, $open, '198.51.100.7'), 'login', 'IP 제한 없어도 로그인은 필요');
+expect_eq(tbb_leadership_decide(['roles' => ['guest']], $open, '198.51.100.7'), 'forbidden_role', 'IP 제한 없어도 역할은 필요');
 
 expect_eq(tbb_safe_return_path('/tech-bizboard/leadership?year=2026'), '/tech-bizboard/leadership?year=2026', '같은 사이트 경로는 그대로');
 expect_eq(tbb_safe_return_path('//evil.example/x'), '', '프로토콜 상대 주소 거부');

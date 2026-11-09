@@ -28,6 +28,8 @@ expect_true(!$list->allows('not-an-ip'), '형식 아닌 IP 거부');
 
 $empty = IpAllowList::fromString('');
 expect_true(!$empty->allows('203.0.113.10'), '목록이 비면 아무도 못 들어온다(실수로 열리지 않게)');
+expect_true($empty->isEmpty(), '빈 목록 표시(호출하는 쪽이 제한 없음으로 처리)');
+expect_true(!$list->isEmpty(), '규칙이 있으면 빈 목록 아님');
 
 $bad = IpAllowList::fromString('198.51.100.0/99, 10.0.0.0/x, nope');
 expect_true(!$bad->allows('198.51.100.1'), '잘못된 접두 길이 규칙은 무시');
