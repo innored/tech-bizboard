@@ -248,83 +248,7 @@ require __DIR__ . '/_header.php';
           </div>
         </div>
         <div class="tab-panel<?= $tab === 'profit' ? ' is-active' : '' ?>" data-panel="profit" role="tabpanel">
-          <div class="rev-toolbar">
-            <div class="rev-filters" aria-label="수익 필터">
-              <div class="field rev-year-field">
-                <label class="label sr-only" for="rev-year-profit-trigger">연도</label>
-                <div class="select" data-select data-rev-year>
-                  <button type="button" class="select-trigger" id="rev-year-profit-trigger" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="select-value"><?= h($year) ?>년</span>
-                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                  </button>
-                  <input type="hidden" id="rev-year-profit" value="<?= h($year) ?>" />
-                  <ul class="select-menu" role="listbox">
-                    <?php foreach ($years as $y): ?>
-                      <?php $y = (int) $y; ?>
-                      <li class="select-option<?= (string) $y === $year ? ' is-selected' : '' ?>" data-value="<?= h((string) $y) ?>"><?= h((string) $y) ?>년</li>
-                    <?php endforeach; ?>
-                  </ul>
-                </div>
-              </div>
-              <button type="button" class="btn btn-outline btn-sm" data-action="profit-toggle-all" id="rev-profit-toggle-all" aria-expanded="false">
-                <svg data-icon="expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
-                <svg data-icon="collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/></svg>
-                <span class="rev-profit-toggle-label">모두 펼치기</span>
-              </button>
-              <button type="button" class="btn btn-outline btn-sm tooltip tooltip-bottom" data-action="download-profit" data-tooltip="엑셀에서 열 수 있는 CSV로 받습니다.">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-                CSV 다운로드
-              </button>
-            </div>
-          </div>
-          <div class="rev-profit-kpis" aria-label="수익 요약">
-            <div class="rev-year-kpi" id="rev-profit-adtech">
-              <span class="rev-year-kpi-label">애드테크</span>
-              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
-              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
-              <span class="rev-profit-sub">집행금액 <span data-profit="base">0</span>원</span>
-              <span class="rev-profit-sub rev-profit-warn" data-profit="missing" hidden></span>
-            </div>
-            <div class="rev-year-kpi" id="rev-profit-general">
-              <span class="rev-year-kpi-label">일반 솔루션</span>
-              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
-              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
-              <span class="rev-profit-sub">매출 <span data-profit="base">0</span>원</span>
-            </div>
-            <div class="rev-year-kpi" id="rev-profit-project">
-              <span class="rev-year-kpi-label">개발·운영</span>
-              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
-              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
-              <span class="rev-profit-sub">매출 <span data-profit="base">0</span>원 · 원가 <span data-profit="cost">0</span>원</span>
-            </div>
-            <div class="rev-year-kpi is-total" id="rev-profit-total">
-              <span class="rev-year-kpi-label">전체 수익</span>
-              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
-              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
-            </div>
-          </div>
-          <p class="rev-profit-note text-sm text-faint" id="rev-profit-note" hidden></p>
-          <div class="card rev-card rev-year-wrap">
-            <div class="table-wrap rev-table-wrap">
-              <table class="table rev-year-table" id="rev-profit-table">
-                <thead>
-                  <tr>
-                    <th class="col-date">입금일</th>
-                    <th class="col-project">프로젝트</th>
-                    <th class="col-client">거래처</th>
-                    <th class="col-svc">솔루션/서비스</th>
-                    <th class="num col-money">집행금액</th>
-                    <th class="num col-rate">테크피</th>
-                    <th class="num col-money">공급가</th>
-                    <th class="num col-money">원가<span class="tooltip tooltip-bottom draft-tip rev-th-tip" tabindex="0" data-tooltip="외주비·서버비 등 프로젝트에 들어간 비용입니다. 개발비·유지보수는 공급가에서 원가를 빼고 수익을 계산합니다." aria-label="외주비·서버비 등 프로젝트에 들어간 비용입니다. 개발비·유지보수는 공급가에서 원가를 빼고 수익을 계산합니다."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span></th>
-                    <th class="num col-money">수익</th>
-                    <th class="num col-rate">수익률</th>
-                  </tr>
-                </thead>
-                <tbody id="rev-profit-body"></tbody>
-              </table>
-            </div>
-          </div>
+          <?php require __DIR__ . '/_profit_panel.php'; ?>
         </div>
         <div class="tab-panel<?= $tab === 'tpl' ? ' is-active' : '' ?>" data-panel="tpl" role="tabpanel">
           <div class="card rev-card">
@@ -432,7 +356,7 @@ require __DIR__ . '/_header.php';
             <input type="hidden" id="rev-m-solution_group" value="" />
             <ul class="select-menu" role="listbox">
               <li class="select-option" data-value="">선택</li>
-              <li class="select-option" data-value="ADTECH">애드테크</li>
+              <li class="select-option" data-value="ADTECH">애드테크 솔루션</li>
               <li class="select-option" data-value="GENERAL">일반 솔루션</li>
             </ul>
           </div>
@@ -572,7 +496,7 @@ require __DIR__ . '/_header.php';
             <input type="hidden" id="rev-t-solution_group" value="" />
             <ul class="select-menu" role="listbox">
               <li class="select-option" data-value="">선택</li>
-              <li class="select-option" data-value="ADTECH">애드테크</li>
+              <li class="select-option" data-value="ADTECH">애드테크 솔루션</li>
               <li class="select-option" data-value="GENERAL">일반 솔루션</li>
             </ul>
           </div>

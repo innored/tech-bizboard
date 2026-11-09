@@ -36,6 +36,7 @@ require_once __DIR__ . '/RevenueTemplateProvider.php';
 require_once __DIR__ . '/TeamRevenueProvider.php';
 require_once __DIR__ . '/RevenueListQuery.php';
 require_once __DIR__ . '/DashboardProvider.php';
+require_once __DIR__ . '/IpAllowList.php';
 
 function tbb_root(): string
 {
@@ -162,6 +163,8 @@ function tbb_config(): array
             'redirect_uri'  => $env('SSO_REDIRECT_URI', ''),
             'home_url'      => $env('SSO_HOME_URL', ''),
         ],
+        // 리더십 페이지 접속 허용 IP(쉼표 구분, CIDR 가능). 비면 아무도 못 연다.
+        'leadership_allow_ips' => $env('LEADERSHIP_ALLOW_IPS'),
     ];
 }
 
@@ -281,8 +284,54 @@ function tbb_guard(): SsoHandler
     $sso->startSession();
     $sso->requireLogin();
     tbb_touch_user($sso);
+    tbb_leadership_only($sso);
 
     return $sso;
+}
+
+/**
+ * leadership 역할만 있는 계정(= 리더십 리포트 전용)인지. admin·member·viewer가 함께 있으면 그 역할을 따른다.
+ *
+ * @param array<string, mixed>|null $user
+ */
+function tbb_is_leadership_only(?array $user): bool
+{
+    $roles = array_map(static fn ($r): string => strtolower(trim((string) $r)), (array) ($user['roles'] ?? []));
+
+    return in_array('leadership', $roles, true) && array_intersect($roles, ['admin', 'member', 'viewer']) === [];
+}
+
+/**
+ * 리더십 리포트 전용 계정이 리포트 밖으로 나갈 때: 화면은 리포트로, API는 403.
+ *
+ * @param array<string, mixed>|null $user
+ * @return 'ok'|'redirect'|'forbidden'
+ */
+function tbb_leadership_route(?array $user, bool $isApi): string
+{
+    if (!tbb_is_leadership_only($user)) {
+        return 'ok';
+    }
+
+    return $isApi ? 'forbidden' : 'redirect';
+}
+
+/** tbb_guard 안에서 부른다. leadership 전용 계정은 리포트 말고 다른 화면·API를 열 수 없다. */
+function tbb_leadership_only(SsoHandler $sso): void
+{
+    $route = tbb_leadership_route($sso->getUser(), tbb_is_api_request());
+    if ($route === 'ok') {
+        return;
+    }
+    if ($route === 'forbidden') {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => '리더십 리포트만 볼 수 있는 계정입니다.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    // 홈(SSO_HOME_URL: 개발 .../tech-bizboard/, 운영 .../) 기준. /revenues/ 처럼 끝에 / 가 붙어도 안 어긋난다
+    header('Location: ' . rtrim($sso->homeUrl(), '/') . '/leadership', true, 302);
+    exit;
 }
 
 /** 로그인한 사용자를 email→name 디렉터리(tb_users)에 적립한다(영수증 이메일 매칭용). 실패해도 요청은 계속. */
@@ -336,9 +385,15 @@ function tbb_is_api_request(): bool
     return (bool) preg_match('#/tech-bizboard/api/#', $uri);
 }
 
-/** 미로그인 첫 화면. 호출하면 여기서 끝난다. */
+/** 미로그인 첫 화면. 호출하면 여기서 끝난다. 화면 GET이면 로그인 뒤 돌아올 주소를 세션에 남긴다. */
 function tbb_render_login(SsoHandler $sso): never
 {
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'GET' && session_status() === PHP_SESSION_ACTIVE) {
+        $back = tbb_safe_return_path((string) ($_SERVER['REQUEST_URI'] ?? ''));
+        if ($back !== '') {
+            $_SESSION['tbb_return_to'] = $back;
+        }
+    }
     $LOGIN_HREF = $sso->isConfigured() ? $sso->authorizeUrl() : '#';
     $APPLY_HREF = $sso->applyUrl();
     require tbb_root() . '/view/login.php';
@@ -389,6 +444,88 @@ function tbb_deny_viewer(?SsoHandler $sso = null): void
     http_response_code(403);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['ok' => false, 'error' => '조회 전용 계정은 수정할 수 없습니다.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/** 로그인 뒤 돌아갈 주소. 같은 사이트 경로(/로 시작)만 받고 나머지는 빈 문자열(오픈 리다이렉트 방지). */
+function tbb_safe_return_path(string $path): string
+{
+    if ($path === '' || $path[0] !== '/' || str_starts_with($path, '//') || preg_match('/[\\\\\x00-\x1f\x7f]/', $path) === 1) {
+        return '';
+    }
+
+    return $path;
+}
+
+/**
+ * 리더십 페이지 접근 판정. 순서: IP → 로그인 → 역할.
+ * 허용 IP가 아니면 로그인 화면도 보여주지 않는다. 역할은 admin·member·viewer·leadership 중 하나면 된다.
+ *
+ * @param array<string, mixed>|null $user
+ * @return 'forbidden_ip'|'login'|'forbidden_role'|'ok'
+ */
+function tbb_leadership_decide(?array $user, IpAllowList $ips, string $ip): string
+{
+    if (!$ips->allows($ip)) {
+        return 'forbidden_ip';
+    }
+    if ($user === null) {
+        return 'login';
+    }
+    foreach ((array) ($user['roles'] ?? []) as $role) {
+        if (in_array(strtolower(trim((string) $role)), ['admin', 'member', 'viewer', 'leadership'], true)) {
+            return 'ok';
+        }
+    }
+
+    return 'forbidden_role';
+}
+
+/** 리더십 페이지 진입. SSO_REQUIRE_LOGIN 설정과 상관없이 로그인을 거친다. 통과하면 SsoHandler를 돌려준다. */
+function tbb_leadership_guard(): SsoHandler
+{
+    $sso = tbb_sso();
+    $ips = IpAllowList::fromString((string) (tbb_config()['leadership_allow_ips'] ?? ''));
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    if (!$ips->allows($ip)) {
+        tbb_render_forbidden(
+            '사내 네트워크에서만 열립니다',
+            '사무실 네트워크나 VPN에 연결한 뒤 다시 열어 주세요.',
+            tbb_safe_return_path((string) ($_SERVER['REQUEST_URI'] ?? '')),
+            '다시 시도'
+        );
+    }
+    $sso->startSession();
+    if ($sso->getUser() !== null) {
+        $sso->refreshUser();
+    }
+    $decision = tbb_leadership_decide($sso->getUser(), $ips, $ip);
+    if ($decision === 'login') {
+        tbb_render_login($sso);
+    }
+    if ($decision !== 'ok') {
+        tbb_render_forbidden(
+            '이 계정에는 열람 권한이 없습니다',
+            '테크본부에 TechBizBoard 열람 권한을 요청하거나, 권한이 있는 계정으로 다시 로그인해 주세요.',
+            $sso->logoutUrl(),
+            '다른 계정으로 로그인'
+        );
+    }
+    tbb_touch_user($sso);
+
+    return $sso;
+}
+
+/** 403 화면(로그인 화면과 같은 레이아웃). 이유와 할 일을 보여준다. 호출하면 여기서 끝난다. */
+function tbb_render_forbidden(string $title, string $body, string $actionHref = '', string $actionLabel = ''): never
+{
+    http_response_code(403);
+    header('Content-Type: text/html; charset=utf-8');
+    $FORBIDDEN_TITLE = $title;
+    $FORBIDDEN_BODY = $body;
+    $FORBIDDEN_ACTION_HREF = $actionHref;
+    $FORBIDDEN_ACTION_LABEL = $actionLabel;
+    require tbb_root() . '/view/forbidden.php';
     exit;
 }
 

@@ -31,5 +31,8 @@ if (!$sso->exchangeCode($code)) {
     exit;
 }
 
-header('Location: ' . $sso->homeUrl());
+// 로그인 화면이 남긴 원래 주소(예: 리더십 페이지)로 돌아간다. 없으면 홈.
+$back = tbb_safe_return_path((string) ($_SESSION['tbb_return_to'] ?? ''));
+unset($_SESSION['tbb_return_to']);
+header('Location: ' . ($back !== '' ? $back : $sso->homeUrl()));
 exit;

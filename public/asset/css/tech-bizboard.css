@@ -2629,6 +2629,242 @@ body.rev-modal-open { overflow: hidden; }
 .rev-page[data-readonly="1"] #rev-list-table tbody tr.rev-row.is-click:hover .col-project,
 .rev-page[data-readonly="1"] #rev-tpl-table tbody tr.rev-row.is-click:hover .col-project { text-decoration: none; }
 
-/* 수익 탭 행: 눌러서 수입 편집 모달을 연다 */
-.rev-page #rev-profit-table tbody tr.rev-profit-row { cursor: pointer; }
-.rev-page #rev-profit-table tbody tr.rev-profit-row:hover td { background: var(--brand-subtle); }
+/* 수익 탭 행: 눌러서 수입 편집 모달을 연다(리더십 페이지는 조회 전용이라 is-click 없음) */
+.rev-page #rev-profit-table tbody tr.rev-profit-row.is-click { cursor: pointer; }
+.rev-page #rev-profit-table tbody tr.rev-profit-row.is-click:hover td { background: var(--brand-subtle); }
+
+/* 상단 메뉴: 새 탭으로 열리는 링크 표시 */
+.app-nav .app-nav-ext { width: 12px; height: 12px; margin-left: 3px; vertical-align: -1px; opacity: .6; }
+
+/* 상단 메뉴: 새 탭으로 열리는 링크 표시 */
+.app-nav-ext { width: 12px; height: 12px; margin-left: 3px; vertical-align: -1px; opacity: .6; }
+
+/* ── 수익 요약 패널(수익 탭·리더십 리포트) ─────────────────────────
+   전체 수익이 주인공, 그 아래 그룹별 수익 비중 막대, 맨 아래 그룹 3열.
+   막대 조각과 그룹 점은 같은 색이라 어느 조각이 어느 그룹인지 바로 읽힌다. */
+/* 그룹 색: 요약 패널(막대·점)과 표(그룹 띠)가 같이 쓴다 */
+.rev-page {
+  --pf-adtech: var(--brand-600);
+  --pf-general: #0E9384;
+  --pf-project: #7A5AF8;
+  --pf-none: var(--ink-400);
+}
+.rev-pf {
+  margin: 0 0 12px;
+  border: 1px solid color-mix(in srgb, var(--ink-200) 70%, transparent);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--sh-card);
+  overflow: hidden;
+}
+.rev-pf-total {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 24px 14px;
+}
+.rev-pf-total-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rev-pf-total-label { font-size: 13px; font-weight: 700; color: var(--ink-600); }
+.rev-pf-total-amt {
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.rev-pf-total-amt .unit,
+.rev-pf-amt .unit { margin-left: 3px; font-size: .5em; font-weight: 700; color: var(--ink-500); letter-spacing: 0; }
+.rev-pf-total-side { display: flex; gap: 28px; margin: 0; }
+.rev-pf-total-side > div { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.rev-pf-total-side dt { font-size: 12px; font-weight: 600; color: var(--ink-500); }
+.rev-pf-total-side dd {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 그룹별 수익 비중 막대 */
+.rev-pf-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin: 0 24px 20px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--ink-100);
+}
+.rev-pf-seg { display: block; height: 100%; min-width: 3px; transition: width .3s ease; }
+.rev-pf-seg.is-adtech { background: var(--pf-adtech); }
+.rev-pf-seg.is-general { background: var(--pf-general); }
+.rev-pf-seg.is-project { background: var(--pf-project); }
+
+/* 그룹 3열: 세로선으로만 나눈다 */
+.rev-pf-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--ink-100);
+}
+.rev-pf-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px 24px 18px;
+}
+.rev-pf-group + .rev-pf-group { border-left: 1px solid var(--ink-100); }
+.rev-pf-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-700);
+}
+.rev-pf-dot { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+.rev-pf-group.is-adtech .rev-pf-dot { background: var(--pf-adtech); }
+.rev-pf-group.is-general .rev-pf-dot { background: var(--pf-general); }
+.rev-pf-group.is-project .rev-pf-dot { background: var(--pf-project); }
+.rev-pf-share {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+}
+.rev-pf-amt {
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.rev-pf-rate { margin: 0; font-size: 13px; color: var(--ink-600); }
+.rev-pf-rate b { font-weight: 800; color: var(--ink-900); font-variant-numeric: tabular-nums; }
+.rev-pf-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  row-gap: 2px;
+  margin: 6px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ink-200);
+  font-size: 12px;
+}
+.rev-pf-meta > div { display: contents; }
+.rev-pf-meta dt { color: var(--ink-500); }
+.rev-pf-meta dd { margin: 0; text-align: right; color: var(--ink-700); font-variant-numeric: tabular-nums; }
+.rev-pf-warn { margin: 2px 0 0; font-size: 12px; color: var(--danger); }
+
+@media (max-width: 720px) {
+  .rev-pf-total { flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px 16px 12px; }
+  .rev-pf-total-amt { font-size: 28px; }
+  .rev-pf-total-side > div { align-items: flex-start; }
+  .rev-pf-bar { margin: 0 16px 16px; }
+  .rev-pf-groups { grid-template-columns: 1fr; }
+  .rev-pf-group { padding: 14px 16px; }
+  .rev-pf-group + .rev-pf-group { border-left: 0; border-top: 1px solid var(--ink-100); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rev-pf-seg { transition: none; }
+}
+
+/* ── 수익 표(수익 탭·리더십 리포트) ────────────────────────────────
+   그룹 줄 → (용역) 프로젝트 소계 → 상세 행. 왼쪽 띠 색은 요약 패널의 그룹 색과 같다. */
+.rev-pt-wrap {
+  border: 1px solid color-mix(in srgb, var(--ink-200) 70%, transparent);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--sh-card);
+  overflow: hidden;
+}
+/* 표 머리줄: 제목 + 표에만 해당하는 버튼(모두 펼치기·CSV) */
+.rev-pt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 12px 18px;
+  border-bottom: 1px solid var(--ink-200);
+}
+.rev-pt-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink-900); }
+.rev-pt-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.rev-pt-scroll { overflow-x: auto; }
+.rev-pt { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.rev-pt th,
+.rev-pt td { padding: 9px 14px; text-align: left; white-space: nowrap; vertical-align: middle; }
+.rev-pt th.num,
+.rev-pt td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.rev-pt thead th {
+  padding-top: 11px;
+  padding-bottom: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-500);
+  background: var(--ink-50);
+  border-bottom: 1px solid var(--ink-200);
+}
+.rev-pt td { color: var(--ink-700); border-bottom: 1px solid var(--ink-100); }
+.rev-pt tbody tr:last-child td { border-bottom: 0; }
+.rev-pt .col-date { width: 1%; color: var(--ink-500); font-variant-numeric: tabular-nums; }
+.rev-pt .col-project .rev-ellip,
+.rev-pt .col-label .rev-ellip { display: inline-block; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+
+/* 그룹 색 띠: 첫 칸 왼쪽 안쪽 그림자 */
+.rev-pt tr.is-adtech > td:first-child { --band: var(--pf-adtech); }
+.rev-pt tr.is-general > td:first-child { --band: var(--pf-general); }
+.rev-pt tr.is-project > td:first-child { --band: var(--pf-project); }
+.rev-pt tr.is-none > td:first-child { --band: var(--pf-none); }
+.rev-pt .rev-pt-group > td:first-child { box-shadow: inset 4px 0 0 var(--band); }
+.rev-pt .rev-pt-sub > td:first-child,
+.rev-pt .rev-pt-row > td:first-child { box-shadow: inset 4px 0 0 color-mix(in srgb, var(--band) 28%, transparent); }
+
+/* 그룹 줄: 진한 이름 + 색 점 + 건수 */
+.rev-pt .rev-pt-group td {
+  padding-top: 13px;
+  padding-bottom: 13px;
+  font-weight: 700;
+  color: var(--ink-900);
+  background: var(--surface);
+  border-top: 1px solid var(--ink-200);
+  border-bottom: 1px solid var(--ink-200);
+}
+.rev-pt tbody tr.rev-pt-group:first-child td { border-top: 0; }
+.rev-pt-label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.rev-pt-group .rev-pt-label { font-size: 14px; }
+.rev-pt-group.is-adtech .rev-pf-dot { background: var(--pf-adtech); }
+.rev-pt-group.is-general .rev-pf-dot { background: var(--pf-general); }
+.rev-pt-group.is-project .rev-pf-dot { background: var(--pf-project); }
+.rev-pt-group.is-none .rev-pf-dot { background: var(--pf-none); }
+.rev-pt-count {
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-600);
+  background: var(--ink-100);
+  border-radius: 999px;
+}
+
+/* 용역 프로젝트 소계: 한 단계 들여쓰기 */
+.rev-pt .rev-pt-sub td { font-weight: 600; color: var(--ink-800); background: color-mix(in srgb, var(--ink-50) 70%, var(--surface)); }
+.rev-pt .rev-pt-sub .col-label { padding-left: 26px; }
+.rev-pt .rev-pt-sub .col-date { padding-left: 26px; }
+
+/* 상세 행: 소계 아래에서는 프로젝트명이 소계와 겹치므로 흐리게 */
+.rev-pt .rev-pt-row.is-nested .col-project { color: var(--ink-500); padding-left: 26px; }
+.rev-pt .rev-pt-row td { padding-top: 7px; padding-bottom: 7px; }
+
+/* 접기 줄 동작 */
+.rev-pt .rev-profit-toggle { cursor: pointer; }
+.rev-pt .rev-profit-toggle:hover td { background: var(--brand-subtle); }
+.rev-pt .rev-profit-toggle:focus-visible { outline: 2px solid var(--brand-600); outline-offset: -2px; }
+.rev-pt .rev-profit-chev { display: block; }
+.rev-pt .rev-pt-row.is-click { cursor: pointer; }
+.rev-pt .rev-pt-row.is-click:hover td { background: var(--brand-subtle); }
+.rev-pt .rev-empty-cell { padding: 28px 14px; text-align: center; color: var(--ink-500); }

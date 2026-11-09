@@ -28,9 +28,6 @@
   var yearIndex = document.getElementById('rev-year-index');
   var yearFilterApi = (typeof RevenueYearFilter !== 'undefined') ? RevenueYearFilter : null;
   var profitApi = (typeof RevenueProfit !== 'undefined') ? RevenueProfit : null;
-  var profitRowsCache = [];
-  /* 수익 탭 접기 상태: 'g:그룹키' / 'p:프로젝트명' → true(펼침). 기본은 모두 접힘, 다시 그려도 유지 */
-  var profitOpen = {};
   var filters = yearFilterApi ? yearFilterApi.normalizeFilters({
     client: root.getAttribute('data-client') || '',
     service: root.getAttribute('data-service') || '',
@@ -229,7 +226,7 @@
     if (tab === 'profit') {
       return fetchRows('?year=' + encodeURIComponent(y))
         .then(function (data) {
-          renderProfit(data.rows || []);
+          if (profitView) profitView.render(data.rows || [], y);
         })
         .catch(function (err) {
           toast('목록 오류', err.message, 'danger');
@@ -318,9 +315,9 @@
     if (!enabled) input.value = ''; // 비활성 시 비움(저장 때도 서버가 비움)
   }
 
-  /* 솔루션구분: 솔루션일 때만, 집행금액·테크피: 애드테크 + 유상일 때만, 원가: 개발비·유지보수 + 유상일 때만 보인다 */
-  var GROUP_LABELS = { '': '선택', ADTECH: '애드테크', GENERAL: '일반 솔루션' };
-  var COST_CATEGORIES = ['개발비', '유지보수'];
+  /* 솔루션구분: 솔루션일 때만, 집행금액·테크피: 애드테크 + 유상일 때만, 원가: 용역(솔루션 외) + 유상일 때만 보인다 */
+  var GROUP_LABELS = { '': '선택', ADTECH: '애드테크 솔루션', GENERAL: '일반 솔루션' };
+  var COST_CATEGORIES = ['컨설팅', '유지보수', '개발비', '기타']; // 서버 TeamRevenueProvider::COST_CATEGORIES와 같게
 
   function profitFieldState(prefix) {
     var category = (document.getElementById(prefix + '-service_category') || {}).value || '';
@@ -900,276 +897,23 @@
   }
 
   /* ── 수익 탭: 솔루션 유상 건의 수익·수익률 ── */
-  var PROFIT_GROUPS = [
-    { key: 'ADTECH', label: '애드테크 합계' },
-    { key: 'GENERAL', label: '일반 솔루션 합계' },
-    { key: 'PROJECT', label: '개발·운영 합계' },
-    { key: '', label: '미분류 합계' }
-  ];
-  var PROFIT_COLS = 10;
+  /* 수익 탭: 그리기·접기·CSV는 공용 모듈(revenue_profit_view.js). 리더십 페이지와 같은 화면 */
+  var profitView = (typeof RevenueProfitView !== 'undefined')
+    ? RevenueProfitView.mount(root.querySelector('[data-panel="profit"]'), {
+      today: root.getAttribute('data-today') || '',
+      onRowClick: openProfitRow
+    })
+    : null;
 
-  function setProfitCard(id, values) {
-    var card = document.getElementById(id);
-    if (!card) return;
-    Object.keys(values).forEach(function (key) {
-      var el = card.querySelector('[data-profit="' + key + '"]');
-      if (el) el.textContent = values[key];
-    });
-  }
-
-  /* 수익 금액 칸. 마이너스는 빨간색 */
-  function profitMoneyHtml(n) {
-    return n < 0 ? '<span class="rev-profit-warn">' + fmt(n) + '</span>' : fmt(n);
-  }
-
-  function profitRowHtml(row, parentKey) {
-    var g = profitApi.group(row);
-    var spend = Number(row.campaign_spend_krw || 0);
-    var spendCell = '';
-    var feeCell = '';
-    var rateCell = '';
-    var costCell = '';
-    var svc = row.solution_name || '';
-    if (g === 'ADTECH') {
-      spendCell = spend > 0 ? fmt(spend) : '<span class="rev-profit-warn">미입력</span>';
-      feeCell = spend > 0 ? profitApi.formatFee(row.tech_fee_rate) : '-';
-      rateCell = profitApi.formatRate(profitApi.rowRate(row));
-    } else if (g === 'GENERAL') {
-      rateCell = profitApi.formatRate(100);
-    } else if (g === 'PROJECT') {
-      svc = row.service_category || '';
-      costCell = '<span title="' + escapeAttr(row.cost_note || '') + '">' + fmt(row.cost_krw || 0) + '</span>';
-      rateCell = profitApi.formatRate(profitApi.rowRate(row));
+  /* 수익 탭 행 → 그 건의 수입 편집 모달. 마감월·조회 전용이면 월별 탭의 그 달로 이동 */
+  function openProfitRow(row) {
+    var ym = String(row.target_year_month || '');
+    if (isReadOnly() || isYmLocked(ym)) {
+      root.setAttribute('data-month', ym.slice(5, 7));
+      activateTab('month');
+      return;
     }
-    return (
-      '<tr class="rev-profit-row" data-id="' + escapeAttr(String(row.id || '')) + '" data-goto-month="' + escapeAttr(String(row.target_year_month || '').slice(5, 7)) + '"' + profitParentAttr(parentKey) + '>' +
-        '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
-        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
-        '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
-        '<td class="col-svc">' + escapeHtml(svc) + '</td>' +
-        '<td class="num col-money">' + spendCell + '</td>' +
-        '<td class="num col-rate">' + escapeHtml(feeCell) + '</td>' +
-        '<td class="num col-money">' + fmt(row.supply_krw) + '</td>' +
-        '<td class="num col-money">' + costCell + '</td>' +
-        '<td class="num col-money">' + profitMoneyHtml(profitApi.rowProfit(row)) + '</td>' +
-        '<td class="num col-rate">' + escapeHtml(rateCell) + '</td>' +
-      '</tr>'
-    );
-  }
-
-  function profitGroupHeadHtml(spec, rows) {
-    var sum = profitApi.summarize(rows);
-    var sales = rows.reduce(function (acc, r) { return acc + Number(r.supply_krw || 0); }, 0);
-    var profitKrw = rows.reduce(function (acc, r) { return acc + profitApi.rowProfit(r); }, 0);
-    var groupRate = '';
-    if (spec.key === 'ADTECH') groupRate = profitApi.formatRate(profitApi.rate(sum.adtech.rated_profit, sum.adtech.spend));
-    else if (spec.key === 'GENERAL') groupRate = profitApi.formatRate(100);
-    else if (spec.key === 'PROJECT') groupRate = profitApi.formatRate(profitApi.rate(sum.project.profit, sum.project.sales));
-    return (
-      '<tr class="rev-year-total rev-profit-toggle"' + profitToggleAttr('g:' + spec.key) + '>' +
-        '<td class="col-date">' + PROFIT_CHEVRON + '</td>' +
-        '<td class="col-project rev-total-label">' + escapeHtml(spec.label) + ' (' + rows.length + '건)</td>' +
-        '<td class="col-client"></td>' +
-        '<td class="col-svc"></td>' +
-        '<td class="num col-money">' + (sum.adtech.spend ? fmt(sum.adtech.spend) : '') + '</td>' +
-        '<td class="num col-rate"></td>' +
-        '<td class="num col-money">' + fmt(sales) + '</td>' +
-        '<td class="num col-money">' + (spec.key === 'PROJECT' ? fmt(sum.project.cost) : '') + '</td>' +
-        '<td class="num col-money">' + profitMoneyHtml(profitKrw) + '</td>' +
-        '<td class="num col-rate">' + escapeHtml(groupRate) + '</td>' +
-      '</tr>'
-    );
-  }
-
-  var PROFIT_CHEVRON = '<svg class="rev-profit-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
-
-  function profitToggleAttr(key) {
-    var open = !!profitOpen[key];
-    return ' data-profit-toggle="' + escapeAttr(key) + '" tabindex="0" role="button" aria-expanded="' + (open ? 'true' : 'false') + '"';
-  }
-
-  function profitParentAttr(key) {
-    return key ? ' data-profit-parent="' + escapeAttr(key) + '"' : '';
-  }
-
-  /* 부모가 펼쳐져 있고 부모 자신도 보일 때만 보인다(그룹 → 프로젝트 → 행) */
-  function applyProfitCollapse() {
-    var body = document.getElementById('rev-profit-body');
-    if (!body) return;
-    var shown = {};
-    Array.prototype.forEach.call(body.querySelectorAll('tr'), function (tr) {
-      var parent = tr.getAttribute('data-profit-parent');
-      var visible = !parent || shown[parent] === true;
-      tr.hidden = !visible;
-      var key = tr.getAttribute('data-profit-toggle');
-      if (key) {
-        var open = !!profitOpen[key];
-        tr.setAttribute('aria-expanded', open ? 'true' : 'false');
-        tr.classList.toggle('is-open', open);
-        shown[key] = visible && open;
-      }
-    });
-    syncProfitToggleAll();
-  }
-
-  /* 접기 줄 키 목록(그룹·프로젝트) */
-  function profitToggleKeys() {
-    var body = document.getElementById('rev-profit-body');
-    if (!body) return [];
-    return Array.prototype.map.call(body.querySelectorAll('[data-profit-toggle]'), function (tr) {
-      return tr.getAttribute('data-profit-toggle');
-    });
-  }
-
-  function isProfitAllOpen() {
-    var keys = profitToggleKeys();
-    return keys.length > 0 && keys.every(function (k) { return !!profitOpen[k]; });
-  }
-
-  /* 하나라도 접혀 있으면 '모두 펼치기', 다 펼쳐져 있으면 '모두 접기' */
-  function syncProfitToggleAll() {
-    var btn = document.getElementById('rev-profit-toggle-all');
-    if (!btn) return;
-    var allOpen = isProfitAllOpen();
-    var label = btn.querySelector('.rev-profit-toggle-label');
-    if (label) label.textContent = allOpen ? '모두 접기' : '모두 펼치기';
-    var expandIcon = btn.querySelector('[data-icon="expand"]');
-    var collapseIcon = btn.querySelector('[data-icon="collapse"]');
-    if (expandIcon) expandIcon.hidden = allOpen;
-    if (collapseIcon) collapseIcon.hidden = !allOpen;
-    btn.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
-    btn.disabled = profitToggleKeys().length === 0;
-  }
-
-  function toggleProfitAll() {
-    var open = !isProfitAllOpen();
-    if (open) {
-      profitToggleKeys().forEach(function (k) { profitOpen[k] = true; });
-    } else {
-      profitOpen = {};
-    }
-    applyProfitCollapse();
-  }
-
-  function toggleProfitRow(tr) {
-    var key = tr.getAttribute('data-profit-toggle');
-    if (!key) return;
-    profitOpen[key] = !profitOpen[key];
-    applyProfitCollapse();
-  }
-
-  function openProfitRowModal(id) {
-    if (!id || isReadOnly()) return false;
-    var row = null;
-    profitRowsCache.forEach(function (r) { if (String(r.id) === String(id)) row = r; });
-    if (!row || isYmLocked(String(row.target_year_month || ''))) return false;
     openRevModal(row);
-    return true;
-  }
-
-  /* 개발·운영 프로젝트 소계 */
-  function profitSubtotalHtml(t) {
-    return (
-      '<tr class="rev-profit-subtotal rev-profit-toggle"' + profitToggleAttr('p:' + t.name) + profitParentAttr('g:PROJECT') + '>' +
-        '<td class="col-date">' + PROFIT_CHEVRON + '</td>' +
-        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(t.name) + '">' + escapeHtml(t.name || '(프로젝트명 없음)') + ' 소계 (' + t.count + '건)</span></td>' +
-        '<td class="col-client"></td>' +
-        '<td class="col-svc"></td>' +
-        '<td class="num col-money"></td>' +
-        '<td class="num col-rate"></td>' +
-        '<td class="num col-money">' + fmt(t.sales) + '</td>' +
-        '<td class="num col-money">' + fmt(t.cost) + '</td>' +
-        '<td class="num col-money">' + profitMoneyHtml(t.profit) + '</td>' +
-        '<td class="num col-rate">' + escapeHtml(profitApi.formatRate(profitApi.rate(t.profit, t.sales))) + '</td>' +
-      '</tr>'
-    );
-  }
-
-  function renderProfit(rows) {
-    if (!profitApi) return;
-    var yr = currentYear();
-    var target = profitApi.targetRows(rows).filter(function (r) {
-      return String(r.target_year_month || '').indexOf(yr + '-') === 0;
-    });
-    profitRowsCache = target;
-    var sum = profitApi.summarize(target);
-    setProfitCard('rev-profit-adtech', {
-      profit: fmt(sum.adtech.profit),
-      rate: profitApi.formatRate(profitApi.rate(sum.adtech.rated_profit, sum.adtech.spend)),
-      base: fmt(sum.adtech.spend),
-      count: fmt(sum.adtech.count)
-    });
-    var missing = document.querySelector('#rev-profit-adtech [data-profit="missing"]');
-    if (missing) {
-      missing.hidden = sum.adtech.missing_spend_count === 0;
-      missing.textContent = '집행금액 미입력 ' + sum.adtech.missing_spend_count + '건은 수익률에서 제외';
-    }
-    setProfitCard('rev-profit-general', {
-      profit: fmt(sum.general.profit),
-      rate: profitApi.formatRate(sum.general.count ? 100 : null),
-      base: fmt(sum.general.sales),
-      count: fmt(sum.general.count)
-    });
-    setProfitCard('rev-profit-project', {
-      profit: fmt(sum.project.profit),
-      rate: profitApi.formatRate(profitApi.rate(sum.project.profit, sum.project.sales)),
-      base: fmt(sum.project.sales),
-      cost: fmt(sum.project.cost),
-      count: fmt(sum.project.count)
-    });
-    setProfitCard('rev-profit-total', {
-      profit: fmt(sum.total.profit),
-      rate: profitApi.formatRate(profitApi.rate(sum.total.rated_profit, sum.total.base)),
-      count: fmt(sum.adtech.count + sum.general.count + sum.project.count)
-    });
-    var note = document.getElementById('rev-profit-note');
-    if (note) {
-      note.hidden = sum.unclassified_count === 0;
-      note.textContent = '솔루션구분 미지정 ' + sum.unclassified_count + '건';
-    }
-    var body = document.getElementById('rev-profit-body');
-    if (!body) return;
-    if (!target.length) {
-      body.innerHTML = '<tr class="rev-empty-row"><td class="rev-empty-cell" colspan="' + PROFIT_COLS + '">유상 솔루션·개발·운영 수입이 없습니다.</td></tr>';
-      syncProfitToggleAll();
-      return;
-    }
-    var ordered = profitApi.orderRows(target);
-    var html = '';
-    PROFIT_GROUPS.forEach(function (spec) {
-      var groupRows = ordered.filter(function (r) { return profitApi.group(r) === spec.key; });
-      if (!groupRows.length) return;
-      html += profitGroupHeadHtml(spec, groupRows);
-      var groupKey = 'g:' + spec.key;
-      if (spec.key !== 'PROJECT') {
-        html += groupRows.map(function (r) { return profitRowHtml(r, groupKey); }).join('');
-        return;
-      }
-      profitApi.projectTotals(groupRows).forEach(function (t) {
-        html += profitSubtotalHtml(t) + groupRows.filter(function (r) {
-          return String(r.project_name || '').trim() === t.name;
-        }).map(function (r) { return profitRowHtml(r, 'p:' + t.name); }).join('');
-      });
-    });
-    body.innerHTML = html;
-    applyProfitCollapse();
-  }
-
-  function downloadProfitCsv() {
-    if (!profitApi) return;
-    if (!profitRowsCache.length) {
-      toast('다운로드 안 됨', '유상 솔루션·개발·운영 수입이 없습니다.', 'danger');
-      return;
-    }
-    var blob = new Blob([profitApi.toCsv(profitRowsCache)], { type: 'text/csv;charset=utf-8' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = '테크본부_수익_' + String(root.getAttribute('data-today') || '').replace(/-/g, '') + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
   function compactWon(n) {
@@ -1388,7 +1132,7 @@
     }
     var profitFields = readProfitFields('rev-t');
     if (!profitFields) return;
-    // 개발비·유지보수는 청구 없이 원가만 나간 달(공급가 0)도 저장한다
+    // 용역은 청구 없이 원가만 나간 달(공급가 0)도 저장한다
     if (billing_type !== 'FREE' && amount_krw <= 0 && profitFields.cost_krw <= 0) {
       toast('저장 안 됨', '총액을 입력해 주세요.', 'danger');
       return;
@@ -1620,7 +1364,7 @@
     }
     var profitFields = readProfitFields('rev-m');
     if (!profitFields) return;
-    // 개발비·유지보수는 청구 없이 원가만 나간 달(공급가 0)도 저장한다
+    // 용역은 청구 없이 원가만 나간 달(공급가 0)도 저장한다
     if (billing_type !== 'FREE' && amount_krw <= 0 && profitFields.cost_krw <= 0) {
       toast('저장 안 됨', '총액을 입력해 주세요.', 'danger');
       return;
@@ -1965,14 +1709,6 @@
       }
       return;
     }
-    if (e.target.closest('[data-action="profit-toggle-all"]')) {
-      toggleProfitAll();
-      return;
-    }
-    if (e.target.closest('[data-action="download-profit"]')) {
-      downloadProfitCsv();
-      return;
-    }
     var resetBtn = e.target.closest('[data-action="reset-filters"]');
     if (resetBtn) {
       resetFilters();
@@ -2010,14 +1746,6 @@
       }
       return;
     }
-    var profitToggle = e.target.closest('[data-profit-toggle]');
-    if (profitToggle) {
-      toggleProfitRow(profitToggle);
-      return;
-    }
-    /* 수익 탭 행 → 그 건의 수입 편집 모달. 마감월·조회 전용이면 예전처럼 월별 탭으로 이동 */
-    var profitRow = e.target.closest('tr.rev-profit-row[data-id]');
-    if (profitRow && openProfitRowModal(profitRow.getAttribute('data-id'))) return;
     var gotoMonth = e.target.closest('[data-goto-month]');
     if (gotoMonth) {
       var next = gotoMonth.getAttribute('data-goto-month') || '';
@@ -2132,15 +1860,6 @@
     if (tplModal && !tplModal.hidden && e.target === tplModal && downOnBackdrop === tplModal) {
       closeTplModal();
     }
-  });
-
-  /* 수익 탭 접기 줄: Enter·Space로도 펼친다 */
-  root.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    var tr = e.target.closest && e.target.closest('[data-profit-toggle]');
-    if (!tr) return;
-    e.preventDefault();
-    toggleProfitRow(tr);
   });
 
   /* 마우스를 누른 위치를 기억한다(백드롭 닫기 판정용) */

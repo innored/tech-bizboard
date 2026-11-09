@@ -16,8 +16,8 @@ class TeamRevenueProvider
     /** 솔루션구분: 애드테크 / 일반 솔루션 */
     public const SOLUTION_GROUPS = ['ADTECH', 'GENERAL'];
 
-    /** 원가를 받는 서비스구분(수익 = 공급가 - 원가) */
-    public const COST_CATEGORIES = ['개발비', '유지보수'];
+    /** 원가를 받는 서비스구분 = 수익 탭 '용역' 그룹(수익 = 공급가 - 원가) */
+    public const COST_CATEGORIES = ['컨설팅', '유지보수', '개발비', '기타'];
 
     private string $createdBy = '';
     private ?DateTimeImmutable $now = null;

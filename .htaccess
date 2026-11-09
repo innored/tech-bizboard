@@ -26,7 +26,7 @@ Options -Indexes
     RewriteRule ^sso/([a-z_]+)/?$ public/sso/$1.php [L,QSA]
 
     # 5) 페이지
-    RewriteRule ^(drafts|revenues|settings|login|api-usage)/?$ public/$1.php [L,QSA]
+    RewriteRule ^(drafts|revenues|settings|login|api-usage|leadership)/?$ public/$1.php [L,QSA]
 
     # 6) 루트 → 대시보드
     RewriteRule ^$ public/index.php [L,QSA]

@@ -36,6 +36,11 @@ expect_eq([(int) $ops['supply_krw'], (int) $ops['cost_krw']], [0, 373338], '청�
 $keep = $rev->update((int) $dev['id'], ['note' => '메모만 수정']);
 expect_eq((int) $keep['cost_krw'], 10867884, '원가를 안 보내면 기존 원가 유지');
 
+$cons = $rev->createOneOff(['service_category' => '컨설팅', 'supply_krw' => 3000000, 'cost_krw' => 500000, 'cost_note' => '외주'] + $base);
+expect_eq((int) $cons['cost_krw'], 500000, '컨설팅도 원가 받음(용역)');
+$etc = $rev->createOneOff(['service_category' => '기타', 'supply_krw' => 1000, 'cost_krw' => 100] + $base);
+expect_eq((int) $etc['cost_krw'], 100, '기타도 원가 받음(용역)');
+
 $sol = $rev->createOneOff(['service_category' => '솔루션', 'solution_group' => 'GENERAL', 'supply_krw' => 1000, 'cost_krw' => 500, 'cost_note' => 'x'] + $base);
 expect_eq([(int) $sol['cost_krw'], (string) $sol['cost_note']], [0, ''], '솔루션은 원가 없음');
 

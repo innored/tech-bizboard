@@ -24,13 +24,13 @@ var rows = [
 ];
 
 var target = profit.targetRows(rows);
-expectEq(target.length, 4, '솔루션 유상만');
+expectEq(target.length, 5, '유상은 서비스구분 상관없이 전부(무상 제외)');
 
 var sum = profit.summarize(target);
 expectEq(sum.adtech, { spend: 10000000, profit: 1750000, rated_profit: 1000000, missing_spend_count: 1, count: 2 }, '애드테크 집계');
 expectEq(sum.general, { sales: 3000000, profit: 3000000, count: 1 }, '일반 집계');
-expectEq(sum.total, { profit: 4750000, base: 13000000, rated_profit: 4000000 }, '전체 집계');
-expectEq(sum.project, { sales: 0, cost: 0, profit: 0, count: 0 }, '개발·운영 없음');
+expectEq(sum.total, { profit: 4750999, base: 13000999, rated_profit: 4000999 }, '전체 집계(용역 컨설팅 포함)');
+expectEq(sum.project, { sales: 999, cost: 0, profit: 999, count: 1 }, '컨설팅 유상은 용역');
 expectEq(sum.unclassified_count, 1, '미분류 건수');
 
 expectEq(profit.rate(1000000, 10000000), 10, '수익률 10%');
@@ -64,22 +64,25 @@ var projRows = [
   { service_category: '기타', billing_type: 'PAID', project_name: '기타', supply_krw: 1000 }
 ];
 var projTarget = profit.targetRows(projRows);
-expectEq(projTarget.length, 3, '개발비·유지보수 유상만 대상');
-expectEq(profit.group(projRows[0]), 'PROJECT', '개발비는 개발·운영');
+expectEq(projTarget.length, 4, '용역 유상(개발비·유지보수·기타) 대상');
+expectEq(profit.group({ service_category: '', billing_type: 'PAID' }), '', '서비스구분 없는 유상은 미분류');
+expectEq(profit.group({ service_category: '컨설팅' }), 'PROJECT', '컨설팅은 용역');
+expectEq(profit.group(projRows[0]), 'PROJECT', '개발비는 용역');
 expectEq(profit.rowProfit(projRows[0]), 84132116, '개발비 수익 = 공급가 - 원가');
 expectEq(profit.rowProfit(projRows[1]), -373338, '청구 없는 달은 마이너스');
 expectEq(profit.rowProfit(rows[0]), 3000000, '솔루션 수익 = 공급가');
 expectEq(profit.rowRate(projRows[0]), 88.6, '개발·운영 수익률 = 수익 / 공급가');
 expectEq(profit.rowRate(projRows[1]), null, '공급가 0이면 수익률 없음');
 var projSum = profit.summarize(projTarget);
-expectEq(projSum.project, { sales: 97500000, cost: 11677687, profit: 85822313, count: 3 }, '개발·운영 집계');
-expectEq(projSum.total, { profit: 85822313, base: 97500000, rated_profit: 85822313 }, '개발·운영이 전체에 포함');
+expectEq(projSum.project, { sales: 97501000, cost: 11677687, profit: 85823313, count: 4 }, '용역 집계');
+expectEq(projSum.total, { profit: 85823313, base: 97501000, rated_profit: 85823313 }, '용역이 전체에 포함');
 expectEq(profit.projectTotals(projTarget), [
+  { name: '기타', sales: 1000, cost: 0, profit: 1000, count: 1 },
   { name: 'LG U+ 심플 번역기', sales: 2500000, cost: 436465, profit: 2063535, count: 1 },
   { name: 'LG U+ 심플 사서함', sales: 95000000, cost: 11241222, profit: 83758778, count: 2 }
-], '프로젝트별 소계(이름순)');
-expectEq(profit.orderRows(projTarget.concat([rows[1]])).map(function (r) { return r.received_date || 'adtech'; }),
-  ['adtech', '2026-01-31', '2026-06-30', '2026-05-10'], '애드테크 → 개발·운영(프로젝트 이름순, 안은 최신순)');
+], '프로젝트별 소계(한국어 정렬: 한글 먼저)');
+expectEq(profit.orderRows(projTarget.concat([rows[1]])).map(function (r) { return r.received_date || r.project_name || 'adtech'; }),
+  ['adtech', '기타', '2026-01-31', '2026-06-30', '2026-05-10'], '애드테크 → 용역(프로젝트 이름순, 안은 최신순)');
 
 var csvRows = [
   { solution_group: 'GENERAL', received_date: '2026-11-01', project_name: '소셜 "구독"', client_name: '로얄캐닌', solution_name: 'Social Radar', supply_krw: 3000000 },
@@ -91,10 +94,10 @@ var csv = profit.toCsv(csvRows);
 var lines = csv.split('\r\n');
 expectEq(csv.charAt(0), '﻿', 'CSV는 BOM으로 시작');
 expectEq(lines[0], '﻿구분,입금일,프로젝트,거래처,솔루션/서비스,집행금액,테크피(%),공급가,원가,수익,수익률(%),원가 메모', 'CSV 머리');
-expectEq(lines[1], '애드테크,2026-08-01,LO,,Lift Optima,,,750000,,750000,,', '애드테크 최신순, 미입력은 빈칸');
-expectEq(lines[2], "애드테크,2026-07-27,'=cmd,아이디엇,Lift Optima,10000000,10,1000000,,1000000,10,", '수식 주입 방지·숫자는 콤마 없이');
+expectEq(lines[1], '애드테크 솔루션,2026-08-01,LO,,Lift Optima,,,750000,,750000,,', '애드테크 최신순, 미입력은 빈칸');
+expectEq(lines[2], "애드테크 솔루션,2026-07-27,'=cmd,아이디엇,Lift Optima,10000000,10,1000000,,1000000,10,", '수식 주입 방지·숫자는 콤마 없이');
 expectEq(lines[3], '일반 솔루션,2026-11-01,"소셜 ""구독""",로얄캐닌,Social Radar,,,3000000,,3000000,100,', '따옴표 이스케이프·일반 100');
-expectEq(lines[4], '개발·운영,2026-06-30,LG U+ 심플 사서함,LG U+,유지보수,,,0,373338,-373338,,"ARS, 서버비"', '개발·운영: 원가·마이너스 수익·메모');
+expectEq(lines[4], '용역,2026-06-30,LG U+ 심플 사서함,LG U+,유지보수,,,0,373338,-373338,,"ARS, 서버비"', '용역: 원가·마이너스 수익·메모');
 expectEq(lines.length, 5, '행 수');
 
 var empty = profit.summarize([]);

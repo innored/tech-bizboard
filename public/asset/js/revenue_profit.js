@@ -8,8 +8,8 @@
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   var GROUPS = ['ADTECH', 'GENERAL'];
-  /* 개발비·유지보수: 수익 = 공급가 - 원가 (서버 TeamRevenueProvider::COST_CATEGORIES와 같게) */
-  var COST_CATEGORIES = ['개발비', '유지보수'];
+  /* 용역(컨설팅·유지보수·개발비·기타): 수익 = 공급가 - 원가 (서버 TeamRevenueProvider::COST_CATEGORIES와 같게) */
+  var COST_CATEGORIES = ['컨설팅', '유지보수', '개발비', '기타'];
 
   function num(value) {
     return Number(String(value == null ? '' : value).replace(/,/g, '')) || 0;
@@ -19,21 +19,22 @@
     return !!row && COST_CATEGORIES.indexOf(row.service_category) >= 0;
   }
 
-  /* ADTECH·GENERAL(솔루션), PROJECT(개발비·유지보수), ''(미분류) */
+  /* ADTECH·GENERAL(솔루션), PROJECT(용역), ''(미분류: 솔루션구분 없음·서비스구분 없음) */
   function group(row) {
     if (isProject(row)) return 'PROJECT';
+    if (row && row.service_category != null && row.service_category !== '솔루션') return '';
     var g = String((row && row.solution_group) || '').trim().toUpperCase();
     return GROUPS.indexOf(g) >= 0 ? g : '';
   }
 
-  /* 유상 중 솔루션·개발비·유지보수만 */
+  /* 유상 전부(무상만 뺀다) */
   function targetRows(rows) {
     return (rows || []).filter(function (row) {
-      return row && row.billing_type === 'PAID' && (row.service_category === '솔루션' || isProject(row));
+      return row && row.billing_type === 'PAID';
     });
   }
 
-  /* 개발·운영은 공급가 - 원가, 솔루션은 공급가 */
+  /* 용역은 공급가 - 원가, 솔루션은 공급가 */
   function rowProfit(row) {
     var supply = num(row && row.supply_krw);
     return isProject(row) ? supply - num(row.cost_krw) : supply;
@@ -82,10 +83,10 @@
   }
 
   var GROUP_ORDER = ['ADTECH', 'GENERAL', 'PROJECT', ''];
-  var GROUP_NAMES = { ADTECH: '애드테크', GENERAL: '일반 솔루션', PROJECT: '개발·운영', '': '미분류' };
+  var GROUP_NAMES = { ADTECH: '애드테크 솔루션', GENERAL: '일반 솔루션', PROJECT: '용역', '': '미분류' };
 
-  /* 화면·CSV 공통 순서: 애드테크 → 일반 → 개발·운영 → 미분류, 그룹 안은 입금일 최신순.
-     개발·운영은 프로젝트 이름순으로 묶은 뒤 그 안에서 최신순 */
+  /* 화면·CSV 공통 순서: 애드테크 → 일반 → 용역 → 미분류, 그룹 안은 입금일 최신순.
+     용역은 프로젝트 이름순으로 묶은 뒤 그 안에서 최신순 */
   function orderRows(rows) {
     return (rows || []).slice().sort(function (a, b) {
       var byGroup = GROUP_ORDER.indexOf(group(a)) - GROUP_ORDER.indexOf(group(b));
@@ -104,7 +105,7 @@
     return String((row && row.project_name) || '').trim();
   }
 
-  /* 개발·운영 프로젝트별 소계, 이름순 */
+  /* 용역 프로젝트별 소계, 이름순 */
   function projectTotals(rows) {
     var map = {};
     var names = [];
