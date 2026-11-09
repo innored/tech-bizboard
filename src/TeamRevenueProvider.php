@@ -11,7 +11,13 @@ declare(strict_types=1);
 class TeamRevenueProvider
 {
     /** 서비스 구분 고정 목록 */
-    public const SERVICE_CATEGORIES = ['솔루션', '컨설팅', '기타'];
+    public const SERVICE_CATEGORIES = ['솔루션', '컨설팅', '유지보수', '개발비', '기타'];
+
+    /** 솔루션구분: 애드테크 / 일반 솔루션 */
+    public const SOLUTION_GROUPS = ['ADTECH', 'GENERAL'];
+
+    /** 원가를 받는 서비스구분(수익 = 공급가 - 원가) */
+    public const COST_CATEGORIES = ['개발비', '유지보수'];
 
     private string $createdBy = '';
     private ?DateTimeImmutable $now = null;
@@ -184,6 +190,11 @@ class TeamRevenueProvider
                     'service_category'    => (string) ($tpl['service_category'] ?? ''),
                     'solution_name'       => (string) ($tpl['solution_name'] ?? ''),
                     'solution_id'         => (string) ($tpl['solution_id'] ?? ''),
+                    'solution_group'      => (string) ($tpl['solution_group'] ?? ''),
+                    'campaign_spend_krw'  => (int) ($tpl['campaign_spend_krw'] ?? 0),
+                    'tech_fee_rate'       => isset($tpl['tech_fee_rate']) ? (float) $tpl['tech_fee_rate'] : null,
+                    'cost_krw'            => (int) ($tpl['cost_krw'] ?? 0),
+                    'cost_note'           => (string) ($tpl['cost_note'] ?? ''),
                     'billing_type'        => $billing,
                     'list_value_krw'      => $listValue,
                     'supply_krw'          => $money['supply_krw'],
@@ -239,6 +250,11 @@ class TeamRevenueProvider
                  service_category = :service_category,
                  solution_name = :solution_name,
                  solution_id = :solution_id,
+                 solution_group = :solution_group,
+                 campaign_spend_krw = :campaign_spend_krw,
+                 tech_fee_rate = :tech_fee_rate,
+                 cost_krw = :cost_krw,
+                 cost_note = :cost_note,
                  billing_type = :billing_type,
                  list_value_krw = :list_value_krw,
                  supply_krw = :supply_krw,
@@ -258,6 +274,11 @@ class TeamRevenueProvider
             'service_category'  => $row['service_category'],
             'solution_name'     => $row['solution_name'],
             'solution_id'       => $row['solution_id'],
+            'solution_group'    => $row['solution_group'],
+            'campaign_spend_krw' => $row['campaign_spend_krw'],
+            'tech_fee_rate'     => $row['tech_fee_rate'],
+            'cost_krw'          => $row['cost_krw'],
+            'cost_note'         => $row['cost_note'],
             'billing_type'      => $row['billing_type'],
             'list_value_krw'    => $row['list_value_krw'],
             'supply_krw'        => $row['supply_krw'],
@@ -337,11 +358,11 @@ class TeamRevenueProvider
         $stmt = $this->pdo->prepare(
             'INSERT INTO tb_team_revenues (
                 revenue_template_id, target_year_month, project_name, client_name,
-                service_category, solution_name, solution_id, supply_krw, vat_krw, amount_krw, billing_type, list_value_krw,
+                service_category, solution_name, solution_id, solution_group, campaign_spend_krw, tech_fee_rate, cost_krw, cost_note, supply_krw, vat_krw, amount_krw, billing_type, list_value_krw,
                 status, received_date, assignee, note, created_by, created_at
             ) VALUES (
                 :revenue_template_id, :target_year_month, :project_name, :client_name,
-                :service_category, :solution_name, :solution_id, :supply_krw, :vat_krw, :amount_krw, :billing_type, :list_value_krw,
+                :service_category, :solution_name, :solution_id, :solution_group, :campaign_spend_krw, :tech_fee_rate, :cost_krw, :cost_note, :supply_krw, :vat_krw, :amount_krw, :billing_type, :list_value_krw,
                 :status, :received_date, :assignee, :note, :created_by, :created_at
             )'
         );
@@ -360,6 +381,7 @@ class TeamRevenueProvider
         if (!array_key_exists('billing_type', $row)) {
             $row['billing_type'] = 'PAID';
         }
+        $row += ['solution_group' => '', 'campaign_spend_krw' => 0, 'tech_fee_rate' => null, 'cost_krw' => 0, 'cost_note' => ''];
         if (!array_key_exists('list_value_krw', $row)) {
             $row['list_value_krw'] = 0;
         }
@@ -433,6 +455,9 @@ class TeamRevenueProvider
                 $money = self::applySupply($money['supply_krw']);
             }
         }
+        $group = self::applySolutionGroup($data, $category, $billing, $callerData, $money);
+        $money = $group['money'];
+        $cost = self::applyCost($data, $category, $billing);
         $status = strtoupper(trim((string) ($data['status'] ?? ($creating ? 'COMPLETED' : 'COMPLETED'))));
         if ($status !== 'PENDING' && $status !== 'COMPLETED') {
             throw new InvalidArgumentException('상태는 PENDING, COMPLETED 만 허용합니다.');
@@ -448,6 +473,11 @@ class TeamRevenueProvider
             'service_category'    => $category,
             'solution_name'       => $solutionName,
             'solution_id'         => $solutionId,
+            'solution_group'      => $group['solution_group'],
+            'campaign_spend_krw'  => $group['campaign_spend_krw'],
+            'tech_fee_rate'       => $group['tech_fee_rate'],
+            'cost_krw'            => $cost['cost_krw'],
+            'cost_note'           => $cost['cost_note'],
             'billing_type'        => $billing,
             'list_value_krw'      => $listValue,
             'supply_krw'          => $money['supply_krw'],
@@ -459,6 +489,71 @@ class TeamRevenueProvider
             'note'                => $note === '' ? null : $note,
             'created_by'          => $this->createdBy,
             'created_at'          => Database::nowKst(),
+        ];
+    }
+
+    /**
+     * 솔루션구분·집행금액·테크피 규칙. 수입·반복 설정이 같이 쓴다.
+     * 애드테크 유상은 집행금액·테크피 필수이고, caller가 공급가 없이 집행금액·테크피를 보내면 공급가를 자동 계산한다.
+     *
+     * @param array<string, mixed> $data        정규화 대상(병합본)
+     * @param array<string, mixed> $callerData  caller 원본(isset 판단용)
+     * @param array{supply_krw: int, vat_krw: int, amount_krw: int} $money
+     * @return array{solution_group: string, campaign_spend_krw: int, tech_fee_rate: ?float, money: array{supply_krw: int, vat_krw: int, amount_krw: int}}
+     */
+    public static function applySolutionGroup(array $data, string $category, string $billing, array $callerData, array $money): array
+    {
+        $result = ['solution_group' => '', 'campaign_spend_krw' => 0, 'tech_fee_rate' => null, 'money' => $money];
+        if ($category !== '솔루션') {
+            return $result;
+        }
+        $group = strtoupper(trim((string) ($data['solution_group'] ?? '')));
+        if (!in_array($group, self::SOLUTION_GROUPS, true)) {
+            throw new InvalidArgumentException('솔루션구분을 선택해 주세요.');
+        }
+        $result['solution_group'] = $group;
+        if ($group !== 'ADTECH' || $billing !== 'PAID') {
+            return $result;
+        }
+        $spend = (int) str_replace(',', '', (string) ($data['campaign_spend_krw'] ?? 0));
+        if ($spend < 1) {
+            throw new InvalidArgumentException('집행금액은 1원 이상이어야 합니다.');
+        }
+        $rateRaw = trim((string) ($data['tech_fee_rate'] ?? ''));
+        $rate = is_numeric($rateRaw) ? round((float) $rateRaw, 2) : 0.0;
+        if ($rate <= 0 || $rate > 100) {
+            throw new InvalidArgumentException('테크피는 0 초과 100 이하여야 합니다.');
+        }
+        $result['campaign_spend_krw'] = $spend;
+        $result['tech_fee_rate'] = $rate;
+        $changed = isset($callerData['campaign_spend_krw']) || isset($callerData['tech_fee_rate']);
+        if ($changed && !isset($callerData['supply_krw'])) {
+            $result['money'] = self::applySupply((int) round($spend * $rate / 100));
+        }
+
+        return $result;
+    }
+
+    /**
+     * 원가 규칙. 수입·반복 설정이 같이 쓴다.
+     * 개발비·유지보수 유상만 원가를 받고, 나머지는 0·빈 메모로 지운다.
+     *
+     * @param array<string, mixed> $data
+     * @return array{cost_krw: int, cost_note: string}
+     */
+    public static function applyCost(array $data, string $category, string $billing): array
+    {
+        if (!in_array($category, self::COST_CATEGORIES, true) || $billing !== 'PAID') {
+            return ['cost_krw' => 0, 'cost_note' => ''];
+        }
+        $cost = (int) str_replace(',', '', trim((string) ($data['cost_krw'] ?? 0)));
+        if ($cost < 0) {
+            throw new InvalidArgumentException('원가는 0 이상이어야 합니다.');
+        }
+
+        return [
+            'cost_krw'  => $cost,
+            'cost_note' => mb_substr(trim((string) ($data['cost_note'] ?? '')), 0, 255),
         ];
     }
 

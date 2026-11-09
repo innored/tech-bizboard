@@ -8,7 +8,7 @@
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   var NONE = '__none__';
-  var SERVICES = ['솔루션', '컨설팅', '기타'];
+  var SERVICES = ['솔루션', '컨설팅', '유지보수', '개발비', '기타'];
 
   function clientKey(row) {
     var name = String((row && row.client_name) || '').trim();

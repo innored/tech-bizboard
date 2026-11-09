@@ -45,17 +45,19 @@ require __DIR__ . '/_header.php';
     data-kind="<?= h($kindFilter) ?>"
     data-today="<?= h($today) ?>"
     data-editable-from="<?= tbb_is_admin() ? '' : h(tbb_previous_month()) ?>"
+    data-readonly="<?= tbb_is_viewer() ? '1' : '0' ?>"
     data-solutions="<?= h(json_encode($solutionMap, JSON_UNESCAPED_UNICODE)) ?>"
   >
     <div class="page-head">
       <h1 class="text-h1">매출(수입)</h1>
-      <p class="text-sm text-muted">테크본부의 수입 내역을 관리합니다.<?php if (!tbb_is_admin()): ?> 오늘 기준 전전월 데이터는 마감처리되어 수정이 불가능합니다.<?php endif; ?></p>
+      <p class="text-sm text-muted">테크본부의 수입 내역을 관리합니다.<?php if (tbb_is_viewer()): ?> 조회 전용 계정이라 수정할 수 없습니다.<?php elseif (!tbb_is_admin()): ?> 오늘 기준 전전월 데이터는 마감처리되어 수정이 불가능합니다.<?php endif; ?></p>
     </div>
 
     <div class="tabs" data-tabs>
       <div class="tab-list" role="tablist" aria-label="수입">
         <button class="tab<?= $tab === 'month' ? ' is-active' : '' ?>" type="button" data-tab="month">월별</button>
         <button class="tab<?= $tab === 'year' ? ' is-active' : '' ?>" type="button" data-tab="year">연간</button>
+        <button class="tab<?= $tab === 'profit' ? ' is-active' : '' ?>" type="button" data-tab="profit">수익</button>
         <button class="tab<?= $tab === 'tpl' ? ' is-active' : '' ?>" type="button" data-tab="tpl">반복 설정</button>
       </div>
       <div class="tab-panels">
@@ -245,6 +247,85 @@ require __DIR__ . '/_header.php';
             </div>
           </div>
         </div>
+        <div class="tab-panel<?= $tab === 'profit' ? ' is-active' : '' ?>" data-panel="profit" role="tabpanel">
+          <div class="rev-toolbar">
+            <div class="rev-filters" aria-label="수익 필터">
+              <div class="field rev-year-field">
+                <label class="label sr-only" for="rev-year-profit-trigger">연도</label>
+                <div class="select" data-select data-rev-year>
+                  <button type="button" class="select-trigger" id="rev-year-profit-trigger" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="select-value"><?= h($year) ?>년</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <input type="hidden" id="rev-year-profit" value="<?= h($year) ?>" />
+                  <ul class="select-menu" role="listbox">
+                    <?php foreach ($years as $y): ?>
+                      <?php $y = (int) $y; ?>
+                      <li class="select-option<?= (string) $y === $year ? ' is-selected' : '' ?>" data-value="<?= h((string) $y) ?>"><?= h((string) $y) ?>년</li>
+                    <?php endforeach; ?>
+                  </ul>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" data-action="profit-toggle-all" id="rev-profit-toggle-all" aria-expanded="false">
+                <svg data-icon="expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                <svg data-icon="collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/></svg>
+                <span class="rev-profit-toggle-label">모두 펼치기</span>
+              </button>
+              <button type="button" class="btn btn-outline btn-sm tooltip tooltip-bottom" data-action="download-profit" data-tooltip="엑셀에서 열 수 있는 CSV로 받습니다.">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+                CSV 다운로드
+              </button>
+            </div>
+          </div>
+          <div class="rev-profit-kpis" aria-label="수익 요약">
+            <div class="rev-year-kpi" id="rev-profit-adtech">
+              <span class="rev-year-kpi-label">애드테크</span>
+              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
+              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
+              <span class="rev-profit-sub">집행금액 <span data-profit="base">0</span>원</span>
+              <span class="rev-profit-sub rev-profit-warn" data-profit="missing" hidden></span>
+            </div>
+            <div class="rev-year-kpi" id="rev-profit-general">
+              <span class="rev-year-kpi-label">일반 솔루션</span>
+              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
+              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
+              <span class="rev-profit-sub">매출 <span data-profit="base">0</span>원</span>
+            </div>
+            <div class="rev-year-kpi" id="rev-profit-project">
+              <span class="rev-year-kpi-label">개발·운영</span>
+              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
+              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
+              <span class="rev-profit-sub">매출 <span data-profit="base">0</span>원 · 원가 <span data-profit="cost">0</span>원</span>
+            </div>
+            <div class="rev-year-kpi is-total" id="rev-profit-total">
+              <span class="rev-year-kpi-label">전체 수익</span>
+              <strong class="rev-year-kpi-amt"><span data-profit="profit">0</span><span class="unit">원</span></strong>
+              <span class="rev-year-kpi-n">수익률 <span data-profit="rate">-</span> · <span data-profit="count">0</span>건</span>
+            </div>
+          </div>
+          <p class="rev-profit-note text-sm text-faint" id="rev-profit-note" hidden></p>
+          <div class="card rev-card rev-year-wrap">
+            <div class="table-wrap rev-table-wrap">
+              <table class="table rev-year-table" id="rev-profit-table">
+                <thead>
+                  <tr>
+                    <th class="col-date">입금일</th>
+                    <th class="col-project">프로젝트</th>
+                    <th class="col-client">거래처</th>
+                    <th class="col-svc">솔루션/서비스</th>
+                    <th class="num col-money">집행금액</th>
+                    <th class="num col-rate">테크피</th>
+                    <th class="num col-money">공급가</th>
+                    <th class="num col-money">원가<span class="tooltip tooltip-bottom draft-tip rev-th-tip" tabindex="0" data-tooltip="외주비·서버비 등 프로젝트에 들어간 비용입니다. 개발비·유지보수는 공급가에서 원가를 빼고 수익을 계산합니다." aria-label="외주비·서버비 등 프로젝트에 들어간 비용입니다. 개발비·유지보수는 공급가에서 원가를 빼고 수익을 계산합니다."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span></th>
+                    <th class="num col-money">수익</th>
+                    <th class="num col-rate">수익률</th>
+                  </tr>
+                </thead>
+                <tbody id="rev-profit-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         <div class="tab-panel<?= $tab === 'tpl' ? ' is-active' : '' ?>" data-panel="tpl" role="tabpanel">
           <div class="card rev-card">
             <div class="rev-card-head">
@@ -331,6 +412,8 @@ require __DIR__ . '/_header.php';
               <li class="select-option" data-value="">선택</li>
               <li class="select-option" data-value="솔루션">솔루션</li>
               <li class="select-option" data-value="컨설팅">컨설팅</li>
+              <li class="select-option" data-value="유지보수">유지보수</li>
+              <li class="select-option" data-value="개발비">개발비</li>
               <li class="select-option" data-value="기타">기타</li>
             </ul>
           </div>
@@ -338,6 +421,21 @@ require __DIR__ . '/_header.php';
         <div class="field" id="rev-m-solution-field">
           <label class="label" for="rev-m-solution">솔루션</label>
           <input class="input" type="text" id="rev-m-solution" list="rev-solution-list" placeholder="목록에서 선택하거나 직접 입력" autocomplete="off" />
+        </div>
+        <div class="field" id="rev-m-group-field" hidden>
+          <label class="label" for="rev-m-solution_group-trigger">솔루션구분 <span class="req">*</span></label>
+          <div class="select" data-select id="rev-m-solution_group-wrap">
+            <button type="button" class="select-trigger" id="rev-m-solution_group-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="select-value">선택</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <input type="hidden" id="rev-m-solution_group" value="" />
+            <ul class="select-menu" role="listbox">
+              <li class="select-option" data-value="">선택</li>
+              <li class="select-option" data-value="ADTECH">애드테크</li>
+              <li class="select-option" data-value="GENERAL">일반 솔루션</li>
+            </ul>
+          </div>
         </div>
         <div class="field">
           <label class="label" for="rev-m-billing_type-trigger">유상/무상 <span class="req">*</span></label>
@@ -353,6 +451,14 @@ require __DIR__ . '/_header.php';
             </ul>
           </div>
         </div>
+        <div class="field" id="rev-m-spend-field" data-adtech-field hidden>
+          <label class="label" for="rev-m-campaign_spend_krw">집행금액 <span class="req">*</span></label>
+          <input class="input num" type="text" id="rev-m-campaign_spend_krw" inputmode="numeric" placeholder="캠페인 집행금액" data-money="spend" />
+        </div>
+        <div class="field" id="rev-m-fee-field" data-adtech-field hidden>
+          <label class="label" for="rev-m-tech_fee_rate">테크피(%) <span class="req">*</span></label>
+          <input class="input num" type="text" id="rev-m-tech_fee_rate" inputmode="decimal" placeholder="예: 10" data-fee />
+        </div>
         <div class="field" id="rev-m-supply-field">
           <label class="label" for="rev-m-supply_krw">공급가</label>
           <input class="input num" type="text" id="rev-m-supply_krw" inputmode="numeric" placeholder="유상일 때 입력" data-money="supply" />
@@ -364,6 +470,14 @@ require __DIR__ . '/_header.php';
         <div class="field" id="rev-m-amount-field">
           <label class="label" for="rev-m-amount_krw">총액</label>
           <input class="input num" type="text" id="rev-m-amount_krw" inputmode="numeric" placeholder="자동 계산" data-money="amount" />
+        </div>
+        <div class="field" id="rev-m-cost-field" data-cost-field hidden>
+          <label class="label" for="rev-m-cost_krw">원가</label>
+          <input class="input num" type="text" id="rev-m-cost_krw" inputmode="numeric" placeholder="외주비·서버비 등 합계" data-money="cost" />
+        </div>
+        <div class="field" id="rev-m-cost-note-field" data-cost-field hidden>
+          <label class="label" for="rev-m-cost_note">원가 메모</label>
+          <input class="input" type="text" id="rev-m-cost_note" maxlength="255" placeholder="예: ARS업체 1,000,000 / 서버비 445,040" />
         </div>
         <div class="field">
           <label class="label" for="rev-m-assignee">담당 <span class="req">*</span></label>
@@ -438,6 +552,8 @@ require __DIR__ . '/_header.php';
               <li class="select-option" data-value="">선택</li>
               <li class="select-option" data-value="솔루션">솔루션</li>
               <li class="select-option" data-value="컨설팅">컨설팅</li>
+              <li class="select-option" data-value="유지보수">유지보수</li>
+              <li class="select-option" data-value="개발비">개발비</li>
               <li class="select-option" data-value="기타">기타</li>
             </ul>
           </div>
@@ -445,6 +561,21 @@ require __DIR__ . '/_header.php';
         <div class="field" id="rev-t-solution-field">
           <label class="label" for="rev-t-solution">솔루션</label>
           <input class="input" type="text" id="rev-t-solution" list="rev-solution-list" placeholder="목록에서 선택하거나 직접 입력" autocomplete="off" />
+        </div>
+        <div class="field" id="rev-t-group-field" hidden>
+          <label class="label" for="rev-t-solution_group-trigger">솔루션구분 <span class="req">*</span></label>
+          <div class="select" data-select id="rev-t-solution_group-wrap">
+            <button type="button" class="select-trigger" id="rev-t-solution_group-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="select-value">선택</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <input type="hidden" id="rev-t-solution_group" value="" />
+            <ul class="select-menu" role="listbox">
+              <li class="select-option" data-value="">선택</li>
+              <li class="select-option" data-value="ADTECH">애드테크</li>
+              <li class="select-option" data-value="GENERAL">일반 솔루션</li>
+            </ul>
+          </div>
         </div>
         <div class="field">
           <label class="label" for="rev-t-billing_type-trigger">유상/무상 <span class="req">*</span></label>
@@ -460,6 +591,14 @@ require __DIR__ . '/_header.php';
             </ul>
           </div>
         </div>
+        <div class="field" id="rev-t-spend-field" data-adtech-field hidden>
+          <label class="label" for="rev-t-campaign_spend_krw">집행금액 <span class="req">*</span></label>
+          <input class="input num" type="text" id="rev-t-campaign_spend_krw" inputmode="numeric" placeholder="캠페인 집행금액" data-money="spend" />
+        </div>
+        <div class="field" id="rev-t-fee-field" data-adtech-field hidden>
+          <label class="label" for="rev-t-tech_fee_rate">테크피(%) <span class="req">*</span></label>
+          <input class="input num" type="text" id="rev-t-tech_fee_rate" inputmode="decimal" placeholder="예: 10" data-fee />
+        </div>
         <div class="field" id="rev-t-supply-field">
           <label class="label" for="rev-t-supply_krw">공급가</label>
           <input class="input num" type="text" id="rev-t-supply_krw" inputmode="numeric" placeholder="유상일 때 입력" data-money="supply" />
@@ -471,6 +610,14 @@ require __DIR__ . '/_header.php';
         <div class="field" id="rev-t-amount-field">
           <label class="label" for="rev-t-amount_krw">총액</label>
           <input class="input num" type="text" id="rev-t-amount_krw" inputmode="numeric" placeholder="자동 계산" data-money="amount" />
+        </div>
+        <div class="field" id="rev-t-cost-field" data-cost-field hidden>
+          <label class="label" for="rev-t-cost_krw">원가</label>
+          <input class="input num" type="text" id="rev-t-cost_krw" inputmode="numeric" placeholder="외주비·서버비 등 합계" data-money="cost" />
+        </div>
+        <div class="field" id="rev-t-cost-note-field" data-cost-field hidden>
+          <label class="label" for="rev-t-cost_note">원가 메모</label>
+          <input class="input" type="text" id="rev-t-cost_note" maxlength="255" placeholder="예: ARS업체 1,000,000 / 서버비 445,040" />
         </div>
         <div class="field">
           <label class="label" for="rev-t-assignee">담당 <span class="req">*</span></label>

@@ -27,6 +27,10 @@
   var monthCardRows = [];
   var yearIndex = document.getElementById('rev-year-index');
   var yearFilterApi = (typeof RevenueYearFilter !== 'undefined') ? RevenueYearFilter : null;
+  var profitApi = (typeof RevenueProfit !== 'undefined') ? RevenueProfit : null;
+  var profitRowsCache = [];
+  /* 수익 탭 접기 상태: 'g:그룹키' / 'p:프로젝트명' → true(펼침). 기본은 모두 접힘, 다시 그려도 유지 */
+  var profitOpen = {};
   var filters = yearFilterApi ? yearFilterApi.normalizeFilters({
     client: root.getAttribute('data-client') || '',
     service: root.getAttribute('data-service') || '',
@@ -114,7 +118,7 @@
 
   function currentTab() {
     var tab = String(root.getAttribute('data-tab') || '').trim();
-    if (tab === 'month' || tab === 'year' || tab === 'tpl') return tab;
+    if (tab === 'month' || tab === 'year' || tab === 'profit' || tab === 'tpl') return tab;
     return currentMonth() ? 'month' : 'year';
   }
 
@@ -134,17 +138,25 @@
     return ym !== '' && from !== '' && ym < from;
   }
 
+  /* viewer(조회 전용): 추가·편집·삭제를 모두 막는다 */
+  function isReadOnly() {
+    return root.getAttribute('data-readonly') === '1';
+  }
+
   function isViewLocked() {
+    if (isReadOnly()) return true;
     var m = currentMonth();
     return m !== '' && isYmLocked(currentYear() + '-' + m);
   }
 
   function syncMode() {
     var locked = isViewLocked();
+    /* 조회 전용은 마감 표시가 아니라 조회 전용 안내만 보인다 */
+    var monthLocked = locked && !isReadOnly();
     if (addRowBtn) addRowBtn.disabled = locked;
-    if (monthCard) monthCard.classList.toggle('is-locked', locked);
-    if (lockHint) lockHint.hidden = !locked;
-    if (monthLock) monthLock.hidden = !locked;
+    if (monthCard) monthCard.classList.toggle('is-locked', monthLocked);
+    if (lockHint) lockHint.hidden = !monthLocked;
+    if (monthLock) monthLock.hidden = !monthLocked;
   }
 
   function syncYearSelects(year) {
@@ -209,6 +221,15 @@
           yearRowsCache = data.rows || [];
           reconcilePickFilters();
           renderAnnual();
+        })
+        .catch(function (err) {
+          toast('목록 오류', err.message, 'danger');
+        });
+    }
+    if (tab === 'profit') {
+      return fetchRows('?year=' + encodeURIComponent(y))
+        .then(function (data) {
+          renderProfit(data.rows || []);
         })
         .catch(function (err) {
           toast('목록 오류', err.message, 'danger');
@@ -297,6 +318,110 @@
     if (!enabled) input.value = ''; // 비활성 시 비움(저장 때도 서버가 비움)
   }
 
+  /* 솔루션구분: 솔루션일 때만, 집행금액·테크피: 애드테크 + 유상일 때만, 원가: 개발비·유지보수 + 유상일 때만 보인다 */
+  var GROUP_LABELS = { '': '선택', ADTECH: '애드테크', GENERAL: '일반 솔루션' };
+  var COST_CATEGORIES = ['개발비', '유지보수'];
+
+  function profitFieldState(prefix) {
+    var category = (document.getElementById(prefix + '-service_category') || {}).value || '';
+    var billing = (document.getElementById(prefix + '-billing_type') || {}).value || 'PAID';
+    var group = (document.getElementById(prefix + '-solution_group') || {}).value || '';
+    var isSolution = category === '솔루션';
+    return {
+      isSolution: isSolution,
+      group: isSolution ? group : '',
+      adtech: isSolution && group === 'ADTECH' && billing === 'PAID',
+      cost: COST_CATEGORIES.indexOf(category) >= 0 && billing === 'PAID'
+    };
+  }
+
+  function applyProfitFields(prefix) {
+    var state = profitFieldState(prefix);
+    var groupField = document.getElementById(prefix + '-group-field');
+    if (groupField) groupField.hidden = !state.isSolution;
+    ['-spend-field', '-fee-field'].forEach(function (suffix) {
+      var field = document.getElementById(prefix + suffix);
+      if (field) field.hidden = !state.adtech;
+    });
+    ['-cost-field', '-cost-note-field'].forEach(function (suffix) {
+      var field = document.getElementById(prefix + suffix);
+      if (field) field.hidden = !state.cost;
+    });
+  }
+
+  function fillProfitFields(prefix, rowData) {
+    var group = (rowData && rowData.solution_group) || '';
+    if (!GROUP_LABELS[group]) group = '';
+    setSelectValue(prefix + '-solution_group-wrap', prefix + '-solution_group', group, GROUP_LABELS[group]);
+    var spend = rowData ? Number(rowData.campaign_spend_krw || 0) : 0;
+    var fee = rowData ? parseFloat(rowData.tech_fee_rate) : NaN;
+    var spendEl = document.getElementById(prefix + '-campaign_spend_krw');
+    var feeEl = document.getElementById(prefix + '-tech_fee_rate');
+    if (spendEl) {
+      spendEl.value = spend ? fmt(spend) : '';
+      // 기존 건(공급가만 있고 집행금액 없음)은 집행금액을 넣어도 실제 받은 공급가를 덮지 않는다
+      var keep = !!(profitApi && rowData && profitApi.keepsSupply(rowData.supply_krw, rowData.campaign_spend_krw));
+      spendEl.dataset.keepSupply = keep ? '1' : '';
+    }
+    if (feeEl) feeEl.value = isNaN(fee) ? '' : String(fee);
+    var cost = rowData ? Number(rowData.cost_krw || 0) : 0;
+    var costEl = document.getElementById(prefix + '-cost_krw');
+    var costNoteEl = document.getElementById(prefix + '-cost_note');
+    if (costEl) costEl.value = cost ? fmt(cost) : '';
+    if (costNoteEl) costNoteEl.value = (rowData && rowData.cost_note) || '';
+    applyProfitFields(prefix);
+  }
+
+  function readFeeRate(prefix) {
+    var raw = (document.getElementById(prefix + '-tech_fee_rate') || {}).value || '';
+    if (profitApi) return profitApi.roundFee(raw);
+    var n = parseFloat(String(raw).replace(/[,%\s]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  /* 저장용 값. 오류면 null(토스트를 띄운다) */
+  function readProfitFields(prefix) {
+    var state = profitFieldState(prefix);
+    if (state.isSolution && !state.group) {
+      toast('저장 안 됨', '솔루션구분을 선택해 주세요.', 'danger');
+      return null;
+    }
+    var cost = state.cost ? readCostFields(prefix) : { cost_krw: 0, cost_note: '' };
+    if (!state.adtech) {
+      return { solution_group: state.group, campaign_spend_krw: 0, tech_fee_rate: null, cost_krw: cost.cost_krw, cost_note: cost.cost_note };
+    }
+    var spend = toInt((document.getElementById(prefix + '-campaign_spend_krw') || {}).value || '');
+    var fee = readFeeRate(prefix);
+    if (spend < 1) {
+      toast('저장 안 됨', '집행금액은 1원 이상이어야 합니다.', 'danger');
+      return null;
+    }
+    if (fee <= 0 || fee > 100) {
+      toast('저장 안 됨', '테크피는 0 초과 100 이하여야 합니다.', 'danger');
+      return null;
+    }
+    return { solution_group: state.group, campaign_spend_krw: spend, tech_fee_rate: fee, cost_krw: 0, cost_note: '' };
+  }
+
+  function readCostFields(prefix) {
+    return {
+      cost_krw: toInt((document.getElementById(prefix + '-cost_krw') || {}).value || ''),
+      cost_note: ((document.getElementById(prefix + '-cost_note') || {}).value || '').trim()
+    };
+  }
+
+  /* 집행금액·테크피 → 공급가 자동 계산(이후 공급가 직접 수정 가능) */
+  function recalcSupplyFromSpend(prefix) {
+    var spend = toInt((document.getElementById(prefix + '-campaign_spend_krw') || {}).value || '');
+    var fee = readFeeRate(prefix);
+    var sEl = document.getElementById(prefix + '-supply_krw');
+    var spendEl = document.getElementById(prefix + '-campaign_spend_krw');
+    if (spendEl && spendEl.dataset.keepSupply === '1') return;
+    if (!sEl || !spend || !fee) return;
+    sEl.value = fmt(Math.round(spend * fee / 100));
+    recalcMoney(prefix, 'supply');
+  }
+
   /* 솔루션 입력값 추출: name=입력 텍스트, id=목록에 있으면 매칭(없으면 직접입력 → 공란) */
   function readSolution(prefix) {
     var input = document.getElementById(prefix + '-solution');
@@ -321,6 +446,7 @@
   }
 
   function deleteBtn(action) {
+    if (isReadOnly()) return '';
     return '<button class="btn btn-outline btn-sm" type="button" data-action="' + escapeAttr(action) + '" aria-label="삭제">' +
       TRASH_ICON + '</button>';
   }
@@ -429,6 +555,11 @@
         ' data-service="' + escapeAttr(row.service_category || '') + '"' +
         ' data-solution="' + escapeAttr(row.solution_name || '') + '"' +
         ' data-solution-id="' + escapeAttr(row.solution_id || '') + '"' +
+        ' data-solution-group="' + escapeAttr(row.solution_group || '') + '"' +
+        ' data-spend="' + escapeAttr(String(Number(row.campaign_spend_krw || 0))) + '"' +
+        ' data-fee="' + escapeAttr(row.tech_fee_rate == null ? '' : String(row.tech_fee_rate)) + '"' +
+        ' data-cost="' + escapeAttr(String(Number(row.cost_krw || 0))) + '"' +
+        ' data-cost-note="' + escapeAttr(row.cost_note || '') + '"' +
         ' data-status="' + escapeAttr(row.status || 'COMPLETED') + '"' +
         ' data-note="' + escapeAttr(row.note || '') + '"' +
         ' data-created-by="' + escapeAttr(row.created_by || '') + '">' +
@@ -465,6 +596,11 @@
       service_category: tr.getAttribute('data-service') || '',
       solution_name: tr.getAttribute('data-solution') || '',
       solution_id: tr.getAttribute('data-solution-id') || '',
+      solution_group: tr.getAttribute('data-solution-group') || '',
+      campaign_spend_krw: toInt(tr.getAttribute('data-spend') || ''),
+      tech_fee_rate: tr.getAttribute('data-fee') || null,
+      cost_krw: toInt(tr.getAttribute('data-cost') || ''),
+      cost_note: tr.getAttribute('data-cost-note') || '',
       billing_type: tr.querySelector('.col-billing .badge-muted') ? 'FREE' : 'PAID',
       supply_krw: toInt(tr.getAttribute('data-supply') || ''),
       vat_krw: toInt(tr.getAttribute('data-vat') || ''),
@@ -496,6 +632,11 @@
         ' data-service="' + escapeAttr(row.service_category || '') + '"' +
         ' data-solution="' + escapeAttr(row.solution_name || '') + '"' +
         ' data-solution-id="' + escapeAttr(row.solution_id || '') + '"' +
+        ' data-solution-group="' + escapeAttr(row.solution_group || '') + '"' +
+        ' data-spend="' + escapeAttr(String(Number(row.campaign_spend_krw || 0))) + '"' +
+        ' data-fee="' + escapeAttr(row.tech_fee_rate == null ? '' : String(row.tech_fee_rate)) + '"' +
+        ' data-cost="' + escapeAttr(String(Number(row.cost_krw || 0))) + '"' +
+        ' data-cost-note="' + escapeAttr(row.cost_note || '') + '"' +
         ' data-billing="' + escapeAttr(billing) + '"' +
         ' data-start="' + escapeAttr(row.start_year_month || '') + '"' +
         ' data-end="' + escapeAttr(row.end_year_month || '') + '"' +
@@ -524,6 +665,11 @@
       service_category: tr.getAttribute('data-service') || '',
       solution_name: tr.getAttribute('data-solution') || '',
       solution_id: tr.getAttribute('data-solution-id') || '',
+      solution_group: tr.getAttribute('data-solution-group') || '',
+      campaign_spend_krw: toInt(tr.getAttribute('data-spend') || ''),
+      tech_fee_rate: tr.getAttribute('data-fee') || null,
+      cost_krw: toInt(tr.getAttribute('data-cost') || ''),
+      cost_note: tr.getAttribute('data-cost-note') || '',
       billing_type: tr.getAttribute('data-billing') === 'FREE' ? 'FREE' : 'PAID',
       supply_krw: toInt(tr.getAttribute('data-supply') || ''),
       vat_krw: toInt(tr.getAttribute('data-vat') || ''),
@@ -753,6 +899,279 @@
     if (yearTotal) yearTotal.hidden = false;
   }
 
+  /* ── 수익 탭: 솔루션 유상 건의 수익·수익률 ── */
+  var PROFIT_GROUPS = [
+    { key: 'ADTECH', label: '애드테크 합계' },
+    { key: 'GENERAL', label: '일반 솔루션 합계' },
+    { key: 'PROJECT', label: '개발·운영 합계' },
+    { key: '', label: '미분류 합계' }
+  ];
+  var PROFIT_COLS = 10;
+
+  function setProfitCard(id, values) {
+    var card = document.getElementById(id);
+    if (!card) return;
+    Object.keys(values).forEach(function (key) {
+      var el = card.querySelector('[data-profit="' + key + '"]');
+      if (el) el.textContent = values[key];
+    });
+  }
+
+  /* 수익 금액 칸. 마이너스는 빨간색 */
+  function profitMoneyHtml(n) {
+    return n < 0 ? '<span class="rev-profit-warn">' + fmt(n) + '</span>' : fmt(n);
+  }
+
+  function profitRowHtml(row, parentKey) {
+    var g = profitApi.group(row);
+    var spend = Number(row.campaign_spend_krw || 0);
+    var spendCell = '';
+    var feeCell = '';
+    var rateCell = '';
+    var costCell = '';
+    var svc = row.solution_name || '';
+    if (g === 'ADTECH') {
+      spendCell = spend > 0 ? fmt(spend) : '<span class="rev-profit-warn">미입력</span>';
+      feeCell = spend > 0 ? profitApi.formatFee(row.tech_fee_rate) : '-';
+      rateCell = profitApi.formatRate(profitApi.rowRate(row));
+    } else if (g === 'GENERAL') {
+      rateCell = profitApi.formatRate(100);
+    } else if (g === 'PROJECT') {
+      svc = row.service_category || '';
+      costCell = '<span title="' + escapeAttr(row.cost_note || '') + '">' + fmt(row.cost_krw || 0) + '</span>';
+      rateCell = profitApi.formatRate(profitApi.rowRate(row));
+    }
+    return (
+      '<tr class="rev-profit-row" data-id="' + escapeAttr(String(row.id || '')) + '" data-goto-month="' + escapeAttr(String(row.target_year_month || '').slice(5, 7)) + '"' + profitParentAttr(parentKey) + '>' +
+        '<td class="col-date">' + escapeHtml(row.received_date || '') + '</td>' +
+        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(row.project_name || '') + '">' + escapeHtml(row.project_name || '') + '</span></td>' +
+        '<td class="col-client">' + escapeHtml(row.client_name || '') + '</td>' +
+        '<td class="col-svc">' + escapeHtml(svc) + '</td>' +
+        '<td class="num col-money">' + spendCell + '</td>' +
+        '<td class="num col-rate">' + escapeHtml(feeCell) + '</td>' +
+        '<td class="num col-money">' + fmt(row.supply_krw) + '</td>' +
+        '<td class="num col-money">' + costCell + '</td>' +
+        '<td class="num col-money">' + profitMoneyHtml(profitApi.rowProfit(row)) + '</td>' +
+        '<td class="num col-rate">' + escapeHtml(rateCell) + '</td>' +
+      '</tr>'
+    );
+  }
+
+  function profitGroupHeadHtml(spec, rows) {
+    var sum = profitApi.summarize(rows);
+    var sales = rows.reduce(function (acc, r) { return acc + Number(r.supply_krw || 0); }, 0);
+    var profitKrw = rows.reduce(function (acc, r) { return acc + profitApi.rowProfit(r); }, 0);
+    var groupRate = '';
+    if (spec.key === 'ADTECH') groupRate = profitApi.formatRate(profitApi.rate(sum.adtech.rated_profit, sum.adtech.spend));
+    else if (spec.key === 'GENERAL') groupRate = profitApi.formatRate(100);
+    else if (spec.key === 'PROJECT') groupRate = profitApi.formatRate(profitApi.rate(sum.project.profit, sum.project.sales));
+    return (
+      '<tr class="rev-year-total rev-profit-toggle"' + profitToggleAttr('g:' + spec.key) + '>' +
+        '<td class="col-date">' + PROFIT_CHEVRON + '</td>' +
+        '<td class="col-project rev-total-label">' + escapeHtml(spec.label) + ' (' + rows.length + '건)</td>' +
+        '<td class="col-client"></td>' +
+        '<td class="col-svc"></td>' +
+        '<td class="num col-money">' + (sum.adtech.spend ? fmt(sum.adtech.spend) : '') + '</td>' +
+        '<td class="num col-rate"></td>' +
+        '<td class="num col-money">' + fmt(sales) + '</td>' +
+        '<td class="num col-money">' + (spec.key === 'PROJECT' ? fmt(sum.project.cost) : '') + '</td>' +
+        '<td class="num col-money">' + profitMoneyHtml(profitKrw) + '</td>' +
+        '<td class="num col-rate">' + escapeHtml(groupRate) + '</td>' +
+      '</tr>'
+    );
+  }
+
+  var PROFIT_CHEVRON = '<svg class="rev-profit-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+
+  function profitToggleAttr(key) {
+    var open = !!profitOpen[key];
+    return ' data-profit-toggle="' + escapeAttr(key) + '" tabindex="0" role="button" aria-expanded="' + (open ? 'true' : 'false') + '"';
+  }
+
+  function profitParentAttr(key) {
+    return key ? ' data-profit-parent="' + escapeAttr(key) + '"' : '';
+  }
+
+  /* 부모가 펼쳐져 있고 부모 자신도 보일 때만 보인다(그룹 → 프로젝트 → 행) */
+  function applyProfitCollapse() {
+    var body = document.getElementById('rev-profit-body');
+    if (!body) return;
+    var shown = {};
+    Array.prototype.forEach.call(body.querySelectorAll('tr'), function (tr) {
+      var parent = tr.getAttribute('data-profit-parent');
+      var visible = !parent || shown[parent] === true;
+      tr.hidden = !visible;
+      var key = tr.getAttribute('data-profit-toggle');
+      if (key) {
+        var open = !!profitOpen[key];
+        tr.setAttribute('aria-expanded', open ? 'true' : 'false');
+        tr.classList.toggle('is-open', open);
+        shown[key] = visible && open;
+      }
+    });
+    syncProfitToggleAll();
+  }
+
+  /* 접기 줄 키 목록(그룹·프로젝트) */
+  function profitToggleKeys() {
+    var body = document.getElementById('rev-profit-body');
+    if (!body) return [];
+    return Array.prototype.map.call(body.querySelectorAll('[data-profit-toggle]'), function (tr) {
+      return tr.getAttribute('data-profit-toggle');
+    });
+  }
+
+  function isProfitAllOpen() {
+    var keys = profitToggleKeys();
+    return keys.length > 0 && keys.every(function (k) { return !!profitOpen[k]; });
+  }
+
+  /* 하나라도 접혀 있으면 '모두 펼치기', 다 펼쳐져 있으면 '모두 접기' */
+  function syncProfitToggleAll() {
+    var btn = document.getElementById('rev-profit-toggle-all');
+    if (!btn) return;
+    var allOpen = isProfitAllOpen();
+    var label = btn.querySelector('.rev-profit-toggle-label');
+    if (label) label.textContent = allOpen ? '모두 접기' : '모두 펼치기';
+    var expandIcon = btn.querySelector('[data-icon="expand"]');
+    var collapseIcon = btn.querySelector('[data-icon="collapse"]');
+    if (expandIcon) expandIcon.hidden = allOpen;
+    if (collapseIcon) collapseIcon.hidden = !allOpen;
+    btn.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
+    btn.disabled = profitToggleKeys().length === 0;
+  }
+
+  function toggleProfitAll() {
+    var open = !isProfitAllOpen();
+    if (open) {
+      profitToggleKeys().forEach(function (k) { profitOpen[k] = true; });
+    } else {
+      profitOpen = {};
+    }
+    applyProfitCollapse();
+  }
+
+  function toggleProfitRow(tr) {
+    var key = tr.getAttribute('data-profit-toggle');
+    if (!key) return;
+    profitOpen[key] = !profitOpen[key];
+    applyProfitCollapse();
+  }
+
+  function openProfitRowModal(id) {
+    if (!id || isReadOnly()) return false;
+    var row = null;
+    profitRowsCache.forEach(function (r) { if (String(r.id) === String(id)) row = r; });
+    if (!row || isYmLocked(String(row.target_year_month || ''))) return false;
+    openRevModal(row);
+    return true;
+  }
+
+  /* 개발·운영 프로젝트 소계 */
+  function profitSubtotalHtml(t) {
+    return (
+      '<tr class="rev-profit-subtotal rev-profit-toggle"' + profitToggleAttr('p:' + t.name) + profitParentAttr('g:PROJECT') + '>' +
+        '<td class="col-date">' + PROFIT_CHEVRON + '</td>' +
+        '<td class="col-project"><span class="rev-ellip" title="' + escapeAttr(t.name) + '">' + escapeHtml(t.name || '(프로젝트명 없음)') + ' 소계 (' + t.count + '건)</span></td>' +
+        '<td class="col-client"></td>' +
+        '<td class="col-svc"></td>' +
+        '<td class="num col-money"></td>' +
+        '<td class="num col-rate"></td>' +
+        '<td class="num col-money">' + fmt(t.sales) + '</td>' +
+        '<td class="num col-money">' + fmt(t.cost) + '</td>' +
+        '<td class="num col-money">' + profitMoneyHtml(t.profit) + '</td>' +
+        '<td class="num col-rate">' + escapeHtml(profitApi.formatRate(profitApi.rate(t.profit, t.sales))) + '</td>' +
+      '</tr>'
+    );
+  }
+
+  function renderProfit(rows) {
+    if (!profitApi) return;
+    var yr = currentYear();
+    var target = profitApi.targetRows(rows).filter(function (r) {
+      return String(r.target_year_month || '').indexOf(yr + '-') === 0;
+    });
+    profitRowsCache = target;
+    var sum = profitApi.summarize(target);
+    setProfitCard('rev-profit-adtech', {
+      profit: fmt(sum.adtech.profit),
+      rate: profitApi.formatRate(profitApi.rate(sum.adtech.rated_profit, sum.adtech.spend)),
+      base: fmt(sum.adtech.spend),
+      count: fmt(sum.adtech.count)
+    });
+    var missing = document.querySelector('#rev-profit-adtech [data-profit="missing"]');
+    if (missing) {
+      missing.hidden = sum.adtech.missing_spend_count === 0;
+      missing.textContent = '집행금액 미입력 ' + sum.adtech.missing_spend_count + '건은 수익률에서 제외';
+    }
+    setProfitCard('rev-profit-general', {
+      profit: fmt(sum.general.profit),
+      rate: profitApi.formatRate(sum.general.count ? 100 : null),
+      base: fmt(sum.general.sales),
+      count: fmt(sum.general.count)
+    });
+    setProfitCard('rev-profit-project', {
+      profit: fmt(sum.project.profit),
+      rate: profitApi.formatRate(profitApi.rate(sum.project.profit, sum.project.sales)),
+      base: fmt(sum.project.sales),
+      cost: fmt(sum.project.cost),
+      count: fmt(sum.project.count)
+    });
+    setProfitCard('rev-profit-total', {
+      profit: fmt(sum.total.profit),
+      rate: profitApi.formatRate(profitApi.rate(sum.total.rated_profit, sum.total.base)),
+      count: fmt(sum.adtech.count + sum.general.count + sum.project.count)
+    });
+    var note = document.getElementById('rev-profit-note');
+    if (note) {
+      note.hidden = sum.unclassified_count === 0;
+      note.textContent = '솔루션구분 미지정 ' + sum.unclassified_count + '건';
+    }
+    var body = document.getElementById('rev-profit-body');
+    if (!body) return;
+    if (!target.length) {
+      body.innerHTML = '<tr class="rev-empty-row"><td class="rev-empty-cell" colspan="' + PROFIT_COLS + '">유상 솔루션·개발·운영 수입이 없습니다.</td></tr>';
+      syncProfitToggleAll();
+      return;
+    }
+    var ordered = profitApi.orderRows(target);
+    var html = '';
+    PROFIT_GROUPS.forEach(function (spec) {
+      var groupRows = ordered.filter(function (r) { return profitApi.group(r) === spec.key; });
+      if (!groupRows.length) return;
+      html += profitGroupHeadHtml(spec, groupRows);
+      var groupKey = 'g:' + spec.key;
+      if (spec.key !== 'PROJECT') {
+        html += groupRows.map(function (r) { return profitRowHtml(r, groupKey); }).join('');
+        return;
+      }
+      profitApi.projectTotals(groupRows).forEach(function (t) {
+        html += profitSubtotalHtml(t) + groupRows.filter(function (r) {
+          return String(r.project_name || '').trim() === t.name;
+        }).map(function (r) { return profitRowHtml(r, 'p:' + t.name); }).join('');
+      });
+    });
+    body.innerHTML = html;
+    applyProfitCollapse();
+  }
+
+  function downloadProfitCsv() {
+    if (!profitApi) return;
+    if (!profitRowsCache.length) {
+      toast('다운로드 안 됨', '유상 솔루션·개발·운영 수입이 없습니다.', 'danger');
+      return;
+    }
+    var blob = new Blob([profitApi.toCsv(profitRowsCache)], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '테크본부_수익_' + String(root.getAttribute('data-today') || '').replace(/-/g, '') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
   function compactWon(n) {
     var abs = Math.abs(Number(n) || 0);
     if (abs >= 10000) return Math.round(abs / 10000).toLocaleString('ko-KR') + '만';
@@ -905,6 +1324,8 @@
     applySolutionEnabled('rev-t', svcCat);
     /* 유상/무상 */
     setSelectValue('rev-t-billing_type-wrap', 'rev-t-billing_type', billing, billing === 'FREE' ? '무상' : '유상');
+    /* 솔루션구분·집행금액·테크피 */
+    fillProfitFields('rev-t', isNew ? null : rowData);
 
     tplModal.hidden = false;
     document.body.classList.add('rev-modal-open');
@@ -965,7 +1386,10 @@
       toast('저장 안 됨', '메모를 제외한 모든 항목을 입력해 주세요.', 'danger');
       return;
     }
-    if (billing_type !== 'FREE' && amount_krw <= 0) {
+    var profitFields = readProfitFields('rev-t');
+    if (!profitFields) return;
+    // 개발비·유지보수는 청구 없이 원가만 나간 달(공급가 0)도 저장한다
+    if (billing_type !== 'FREE' && amount_krw <= 0 && profitFields.cost_krw <= 0) {
       toast('저장 안 됨', '총액을 입력해 주세요.', 'danger');
       return;
     }
@@ -973,6 +1397,11 @@
     var payload = {
       action: isNew ? 'create' : 'update',
       id: editId,
+      solution_group: profitFields.solution_group,
+      campaign_spend_krw: profitFields.campaign_spend_krw,
+      tech_fee_rate: profitFields.tech_fee_rate,
+      cost_krw: profitFields.cost_krw,
+      cost_note: profitFields.cost_note,
       project_name: project_name,
       client_name: client_name,
       service_category: service_category,
@@ -1099,6 +1528,8 @@
 
     /* 유상/무상 */
     setSelectValue('rev-m-billing_type-wrap', 'rev-m-billing_type', billing, billing === 'FREE' ? '무상' : '유상');
+    /* 솔루션구분·집행금액·테크피 */
+    fillProfitFields('rev-m', isNew ? null : rowData);
 
     /* 상태 */
     setSelectValue('rev-m-status-wrap', 'rev-m-status', status, status === 'PENDING' ? '미확인' : '완료');
@@ -1187,7 +1618,10 @@
       toast('저장 안 됨', '메모를 제외한 모든 항목을 입력해 주세요.', 'danger');
       return;
     }
-    if (billing_type !== 'FREE' && amount_krw <= 0) {
+    var profitFields = readProfitFields('rev-m');
+    if (!profitFields) return;
+    // 개발비·유지보수는 청구 없이 원가만 나간 달(공급가 0)도 저장한다
+    if (billing_type !== 'FREE' && amount_krw <= 0 && profitFields.cost_krw <= 0) {
       toast('저장 안 됨', '총액을 입력해 주세요.', 'danger');
       return;
     }
@@ -1195,6 +1629,11 @@
     var payload = {
       action: isNew ? 'create' : 'update',
       id: editId,
+      solution_group: profitFields.solution_group,
+      campaign_spend_krw: profitFields.campaign_spend_krw,
+      tech_fee_rate: profitFields.tech_fee_rate,
+      cost_krw: profitFields.cost_krw,
+      cost_note: profitFields.cost_note,
       received_date: received_date,
       project_name: project_name,
       client_name: client_name,
@@ -1233,19 +1672,12 @@
         savedRow.status = savedRow.status || status;
         savedRow.note = savedRow.note != null ? savedRow.note : note;
 
-        upsertListRow(savedRow);
+        // 수익 탭에서 연 모달이면 월 목록 대신 수익 탭을 다시 그린다
+        if (currentTab() === 'profit') loadList();
+        else upsertListRow(savedRow);
 
-        if (isNew && savedRow.id) {
-          /* 신규: 모달을 편집 모드로 전환(증빙 섹션 활성화) */
-          revModal.dataset.editId = String(savedRow.id);
-          var titleEl = modalEl('rev-m-title');
-          if (titleEl) titleEl.textContent = '수입 편집';
-          enableRevReceipts();
-          toast('저장됨', '수입을 저장했습니다. 증빙을 첨부할 수 있습니다.', 'success');
-        } else {
-          toast('저장됨', '수입을 저장했습니다.', 'success');
-          closeRevModal();
-        }
+        toast('저장됨', isNew ? '수입을 저장했습니다. 증빙은 목록에서 다시 열어 첨부할 수 있습니다.' : '수입을 저장했습니다.', 'success');
+        closeRevModal();
       })
       .catch(function (err) {
         toast('저장 실패', err.message, 'danger');
@@ -1305,7 +1737,13 @@
           '<div class="rev-viewer-body"></div>' +
         '</div>';
       document.body.appendChild(overlay);
-      overlay.addEventListener('click', function (e) { if (e.target === overlay) closeRevViewer(); });
+      var viewerDown = null;
+      overlay.addEventListener('mousedown', function (e) { viewerDown = e.target; });
+      overlay.addEventListener('click', function (e) {
+        // 누른 곳과 뗀 곳이 모두 바깥일 때만 닫는다(드래그 선택 중 닫힘 방지)
+        if (e.target === overlay && viewerDown === overlay) closeRevViewer();
+        viewerDown = null;
+      });
       overlay.querySelector('.rev-viewer-close').addEventListener('click', closeRevViewer);
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !overlay.hidden) closeRevViewer();
@@ -1512,15 +1950,6 @@
     receipts.appendChild(listEl);
   }
 
-  function enableRevReceipts() {
-    var receipts = modalEl('rev-m-receipts');
-    if (!receipts) return;
-    receipts.removeAttribute('data-receipts-disabled');
-    receipts.title = '';
-    initRevReceiptsSection(receipts, true);
-    loadRevFiles();
-  }
-
   /* ════════════════════════════════════════
      이벤트 위임
   ════════════════════════════════════════ */
@@ -1534,6 +1963,14 @@
         var opened = sec.classList.toggle('is-open');
         accHead.setAttribute('aria-expanded', opened ? 'true' : 'false');
       }
+      return;
+    }
+    if (e.target.closest('[data-action="profit-toggle-all"]')) {
+      toggleProfitAll();
+      return;
+    }
+    if (e.target.closest('[data-action="download-profit"]')) {
+      downloadProfitCsv();
       return;
     }
     var resetBtn = e.target.closest('[data-action="reset-filters"]');
@@ -1573,6 +2010,14 @@
       }
       return;
     }
+    var profitToggle = e.target.closest('[data-profit-toggle]');
+    if (profitToggle) {
+      toggleProfitRow(profitToggle);
+      return;
+    }
+    /* 수익 탭 행 → 그 건의 수입 편집 모달. 마감월·조회 전용이면 예전처럼 월별 탭으로 이동 */
+    var profitRow = e.target.closest('tr.rev-profit-row[data-id]');
+    if (profitRow && openProfitRowModal(profitRow.getAttribute('data-id'))) return;
     var gotoMonth = e.target.closest('[data-goto-month]');
     if (gotoMonth) {
       var next = gotoMonth.getAttribute('data-goto-month') || '';
@@ -1593,6 +2038,7 @@
     }
     var addTpl = e.target.closest('[data-action="add-tpl"]');
     if (addTpl) {
+      if (isReadOnly()) return;
       openTplModal(null);
       return;
     }
@@ -1622,6 +2068,7 @@
     }
     var delTpl = e.target.closest('[data-action="delete-tpl"]');
     if (delTpl) {
+      if (isReadOnly()) return;
       var trow = delTpl.closest('tr');
       if (!trow) return;
       var tid = trow.getAttribute('data-id');
@@ -1651,6 +2098,7 @@
     /* 반복 설정 행 클릭 → 반복 모달 열기 */
     if (revRowClick && tplBody && tplBody.contains(revRowClick)) {
       if (e.target.closest('[data-action="delete-tpl"]')) return;
+      if (isReadOnly()) return;
       openTplModal(tplDataFromTr(revRowClick));
       return;
     }
@@ -1674,13 +2122,31 @@
       saveTplModal();
       return;
     }
-    /* 백드롭 클릭 닫기 */
-    if (revModal && !revModal.hidden && e.target === revModal) {
+    /* 백드롭 클릭 닫기: 누른 곳과 뗀 곳이 모두 백드롭일 때만.
+       입력칸에서 글자를 드래그해 선택하다 바깥에서 마우스를 떼면 click이 백드롭으로 잡혀 모달이 닫히던 문제 방지 */
+    var downOnBackdrop = backdropDownTarget;
+    backdropDownTarget = null;
+    if (revModal && !revModal.hidden && e.target === revModal && downOnBackdrop === revModal) {
       closeRevModal();
     }
-    if (tplModal && !tplModal.hidden && e.target === tplModal) {
+    if (tplModal && !tplModal.hidden && e.target === tplModal && downOnBackdrop === tplModal) {
       closeTplModal();
     }
+  });
+
+  /* 수익 탭 접기 줄: Enter·Space로도 펼친다 */
+  root.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var tr = e.target.closest && e.target.closest('[data-profit-toggle]');
+    if (!tr) return;
+    e.preventDefault();
+    toggleProfitRow(tr);
+  });
+
+  /* 마우스를 누른 위치를 기억한다(백드롭 닫기 판정용) */
+  var backdropDownTarget = null;
+  document.addEventListener('mousedown', function (e) {
+    backdropDownTarget = e.target;
   });
 
   /* 금액 칸 입력 시 자동계산 */
@@ -1688,12 +2154,15 @@
     var el = e.target;
     if (!el || typeof el.getAttribute !== 'function') return;
     var kind = el.getAttribute('data-money');
-    if (!kind) return;
-    if (revModal && !revModal.hidden && revModal.contains(el)) {
-      recalcMoney('rev-m', kind);
-    } else if (tplModal && !tplModal.hidden && tplModal.contains(el)) {
-      recalcMoney('rev-t', kind);
-    }
+    var isFee = el.hasAttribute('data-fee');
+    if (!kind && !isFee) return;
+    var prefix = '';
+    if (revModal && !revModal.hidden && revModal.contains(el)) prefix = 'rev-m';
+    else if (tplModal && !tplModal.hidden && tplModal.contains(el)) prefix = 'rev-t';
+    if (!prefix) return;
+    if (kind === 'cost') return;
+    if (isFee || kind === 'spend') recalcSupplyFromSpend(prefix);
+    else recalcMoney(prefix, kind);
   });
 
   /* 서비스구분 변경 → '우리 솔루션' 활성/비활성 */
@@ -1703,6 +2172,8 @@
     } else if (tplModal && !tplModal.hidden && e.target.closest('#rev-t-service_category-wrap')) {
       applySolutionEnabled('rev-t', (document.getElementById('rev-t-service_category') || {}).value || '');
     }
+    if (revModal && !revModal.hidden && revModal.contains(e.target)) applyProfitFields('rev-m');
+    else if (tplModal && !tplModal.hidden && tplModal.contains(e.target)) applyProfitFields('rev-t');
   });
 
   /* 금액 칸 포커스아웃 시 천단위 콤마로 정리 */
@@ -1746,7 +2217,7 @@
       root.setAttribute('data-year', y);
       syncYearSelects(y);
       syncUrl();
-      if (currentTab() === 'month' || currentTab() === 'year') loadList();
+      if (currentTab() === 'month' || currentTab() === 'year' || currentTab() === 'profit') loadList();
       return;
     }
     if (e.target.closest('#rev-service-wrap')) {
@@ -1759,7 +2230,7 @@
   if (tabs) {
     tabs.addEventListener('tab:change', function (e) {
       var tab = e.detail && e.detail.tab;
-      if (tab !== 'month' && tab !== 'year' && tab !== 'tpl') return;
+      if (tab !== 'month' && tab !== 'year' && tab !== 'profit' && tab !== 'tpl') return;
       root.setAttribute('data-tab', tab);
       if (tab === 'month' && !currentMonth()) {
         var mm = defaultMonth(currentYear());

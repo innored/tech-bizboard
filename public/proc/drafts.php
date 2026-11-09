@@ -63,6 +63,11 @@ if ($action === '' && $method === 'PATCH') {
     $action = isset($body['amount_foreign']) ? 'update' : 'status';
 }
 
+// viewer는 조회만: 미리보기·지난달 조회·환율 조회 말고는 막는다.
+if (!in_array($action, ['preview', 'previous', 'rates', 'rate'], true)) {
+    tbb_deny_viewer($sso);
+}
+
 try {
     if ($action === 'create') {
         $month = tbb_normalize_month((string) ($body['month'] ?? ''));

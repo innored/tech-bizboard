@@ -368,6 +368,30 @@ function tbb_is_admin(?SsoHandler $sso = null): bool
     return $sso->hasRole('admin');
 }
 
+/** SSO 역할이 viewer 면 참(조회 전용). admin 역할이 함께 있으면 admin이 이긴다. */
+function tbb_is_viewer(?SsoHandler $sso = null): bool
+{
+    if ($sso === null && session_status() !== PHP_SESSION_ACTIVE) {
+        return false;
+    }
+    $sso ??= tbb_sso();
+
+    return $sso->hasRole('viewer') && !$sso->hasRole('admin');
+}
+
+/** viewer면 API는 403으로 끝낸다. 쓰기 요청 앞에서 부른다. */
+function tbb_deny_viewer(?SsoHandler $sso = null): void
+{
+    $sso ??= tbb_sso();
+    if (!tbb_is_viewer($sso)) {
+        return;
+    }
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => '조회 전용 계정은 수정할 수 없습니다.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 /** admin이 아니면 화면은 홈으로, API는 403. */
 function tbb_require_admin(?SsoHandler $sso = null): void
 {

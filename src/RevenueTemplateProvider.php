@@ -78,10 +78,10 @@ class RevenueTemplateProvider
         $row['created_by'] = $this->createdBy;
         $stmt = $this->pdo->prepare(
             'INSERT INTO tb_revenue_templates (
-                project_name, client_name, service_category, solution_name, solution_id, billing_type, supply_krw, vat_krw, amount_krw, list_value_krw, assignee,
+                project_name, client_name, service_category, solution_name, solution_id, solution_group, campaign_spend_krw, tech_fee_rate, cost_krw, cost_note, billing_type, supply_krw, vat_krw, amount_krw, list_value_krw, assignee,
                 start_year_month, end_year_month, note, is_active, created_by, created_at
             ) VALUES (
-                :project_name, :client_name, :service_category, :solution_name, :solution_id, :billing_type, :supply_krw, :vat_krw, :amount_krw, :list_value_krw, :assignee,
+                :project_name, :client_name, :service_category, :solution_name, :solution_id, :solution_group, :campaign_spend_krw, :tech_fee_rate, :cost_krw, :cost_note, :billing_type, :supply_krw, :vat_krw, :amount_krw, :list_value_krw, :assignee,
                 :start_year_month, :end_year_month, :note, :is_active, :created_by, :created_at
             )'
         );
@@ -112,6 +112,11 @@ class RevenueTemplateProvider
                  service_category = :service_category,
                  solution_name = :solution_name,
                  solution_id = :solution_id,
+                 solution_group = :solution_group,
+                 campaign_spend_krw = :campaign_spend_krw,
+                 tech_fee_rate = :tech_fee_rate,
+                 cost_krw = :cost_krw,
+                 cost_note = :cost_note,
                  billing_type = :billing_type,
                  supply_krw = :supply_krw,
                  vat_krw = :vat_krw,
@@ -224,6 +229,17 @@ class RevenueTemplateProvider
                 $amount = $auto['amount_krw'];
             }
         }
+        $group = TeamRevenueProvider::applySolutionGroup(
+            $data,
+            $category,
+            $billing,
+            $data,
+            ['supply_krw' => $supply, 'vat_krw' => $vat, 'amount_krw' => $amount]
+        );
+        $supply = $group['money']['supply_krw'];
+        $vat = $group['money']['vat_krw'];
+        $amount = $group['money']['amount_krw'];
+        $cost = TeamRevenueProvider::applyCost($data, $category, $billing);
 
         return [
             'project_name'     => $name,
@@ -231,6 +247,11 @@ class RevenueTemplateProvider
             'service_category' => $category,
             'solution_name'    => $solutionName,
             'solution_id'      => $solutionId,
+            'solution_group'   => $group['solution_group'],
+            'campaign_spend_krw' => $group['campaign_spend_krw'],
+            'tech_fee_rate'    => $group['tech_fee_rate'],
+            'cost_krw'         => $cost['cost_krw'],
+            'cost_note'        => $cost['cost_note'],
             'billing_type'     => $billing,
             'supply_krw'       => $supply,
             'vat_krw'          => $vat,

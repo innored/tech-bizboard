@@ -13,7 +13,7 @@ class RevenueListQuery
     public const CLIENT_NONE = '__none__';
 
     /** @var list<string> */
-    public const SERVICES = ['솔루션', '컨설팅', '기타'];
+    public const SERVICES = ['솔루션', '컨설팅', '유지보수', '개발비', '기타'];
 
     /**
      * @param array<string, mixed> $query
@@ -34,7 +34,7 @@ class RevenueListQuery
                 $month = $todayMonth;
             }
         }
-        if (!in_array($tab, ['month', 'year', 'tpl'], true)) {
+        if (!in_array($tab, ['month', 'year', 'profit', 'tpl'], true)) {
             $tab = $month !== '' ? 'month' : 'year';
         }
         if ($tab === 'month' && $month === '') {

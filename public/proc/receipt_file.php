@@ -38,6 +38,11 @@ if ($method === 'POST') {
     }
 }
 
+// viewer는 조회만: POST(업로드·삭제·분석·이름변경)는 막는다.
+if ($method === 'POST') {
+    tbb_deny_viewer($sso);
+}
+
 if ($method === 'GET' && $action === 'list') {
     $templateId = (int) ($_GET['template_id'] ?? 0);
     $month = trim((string) ($_GET['month'] ?? ''));

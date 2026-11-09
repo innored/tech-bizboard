@@ -26,6 +26,8 @@ function tbb_receipt_json(array $payload, int $code = 200): never
 if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     tbb_receipt_json(['ok' => false, 'error' => 'POST 만 허용합니다.'], 405);
 }
+// viewer는 조회만: 쓰기 요청은 여기서 막는다.
+tbb_deny_viewer($sso);
 if (!$sso->verifyCsrf((string) ($_POST['csrf'] ?? ''))) {
     tbb_receipt_json(['ok' => false, 'error' => 'CSRF 검증에 실패했습니다.'], 403);
 }

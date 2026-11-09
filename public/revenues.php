@@ -14,7 +14,7 @@ $sso = tbb_guard();
 $SSO_USER = $sso->getUser();
 $SHOW_LOGOUT = $sso->isLoginRequired();
 $CSRF_TOKEN = $sso->csrfToken();
-$PAGE_SCRIPTS = ['asset/js/revenue_year_filter.js', 'asset/js/revenues.js'];
+$PAGE_SCRIPTS = ['asset/js/revenue_year_filter.js', 'asset/js/revenue_profit.js', 'asset/js/revenues.js'];
 
 $today = tbb_today();
 $resolved = RevenueListQuery::resolve($_GET, $today);

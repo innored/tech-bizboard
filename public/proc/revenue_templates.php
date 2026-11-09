@@ -27,6 +27,9 @@ if ($method === 'GET') {
     tbb_rev_tpl_json(['ok' => true, 'rows' => $templates->listAll()]);
 }
 
+// viewer는 조회만: 쓰기 요청은 여기서 막는다.
+tbb_deny_viewer($sso);
+
 $raw = file_get_contents('php://input');
 $body = json_decode(is_string($raw) ? $raw : '', true);
 if (!is_array($body)) {

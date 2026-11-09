@@ -10,7 +10,9 @@
   var month = root.getAttribute('data-month') || '';
   // 전전월 이전은 마감(admin 은 빈 값이라 항상 편집 가능).
   var editableFrom = root.getAttribute('data-editable-from') || '';
-  var monthLocked = editableFrom !== '' && month !== '' && month < editableFrom;
+  /* viewer(조회 전용)는 모든 달을 마감월처럼 잠근다 */
+  var readOnly = root.getAttribute('data-readonly') === '1';
+  var monthLocked = readOnly || (editableFrom !== '' && month !== '' && month < editableFrom);
   var idle = document.getElementById('draft-idle');
   var compose = document.getElementById('draft-compose');
   var saveBtn = document.getElementById('draft-save');
@@ -93,7 +95,9 @@
 
   /** 잠금 사유에 맞는 안내를 띄운다. */
   function toastLocked() {
-    if (monthLocked) {
+    if (readOnly) {
+      toast('조회 전용입니다.', '수정 권한이 없습니다.', 'danger');
+    } else if (monthLocked) {
       toast('마감된 달입니다.', '전전월 이전은 수정할 수 없습니다.', 'danger');
     } else {
       toast('완료된 문서입니다.', '수정하려면 먼저 완료를 해제하세요.', 'danger');
@@ -1445,7 +1449,7 @@
 
   if (monthLocked) {
     root.classList.add('is-month-locked');
-    var lockHint = document.getElementById('draft-lock-hint');
+    var lockHint = document.getElementById(readOnly ? 'draft-readonly-hint' : 'draft-lock-hint');
     if (lockHint) lockHint.hidden = false;
   }
 

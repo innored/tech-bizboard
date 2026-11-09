@@ -77,11 +77,13 @@ require __DIR__ . '/_header.php';
     data-month="<?= h((string) $month) ?>"
     data-selected="<?= h((string) $selectedId) ?>"
     data-editable-from="<?= tbb_is_admin() ? '' : h(tbb_previous_month()) ?>"
+    data-readonly="<?= tbb_is_viewer() ? '1' : '0' ?>"
     data-user-name="<?= h((string) ($SSO_USER['name'] ?? '')) ?>"
   >
     <div class="page-head">
       <h1 class="text-h1">매입(지출)</h1>
-      <p class="text-sm text-muted">템플릿을 골라 작성한 뒤 그룹웨어에 복사하세요.<?php if (!tbb_is_admin()): ?> 전전월 이전은 마감되어 수정할 수 없습니다.<?php endif; ?></p>
+      <p class="text-sm text-muted">템플릿을 골라 작성한 뒤 그룹웨어에 복사하세요.<?php if (!tbb_is_admin() && !tbb_is_viewer()): ?> 전전월 이전은 마감되어 수정할 수 없습니다.<?php endif; ?></p>
+      <p class="hint" id="draft-readonly-hint" hidden>조회 전용 계정입니다. 수정·작성은 할 수 없습니다.</p>
       <p class="hint" id="draft-lock-hint" hidden>마감된 달입니다. 조회만 가능하며 수정·작성은 당월과 전월에서만 됩니다.</p>
     </div>
 

@@ -1121,6 +1121,62 @@ button.rev-year-kpi {
   font-weight: 600;
   color: var(--ink-500);
 }
+/* 수익 탭: 애드테크 · 일반 · 개발·운영 · 전체 카드 */
+.rev-profit-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.rev-profit-sub {
+  font-size: 12px;
+  color: var(--text-faint, #888);
+  font-variant-numeric: tabular-nums;
+}
+.rev-profit-warn { color: var(--danger); }
+.rev-profit-note { margin: 0 0 10px; }
+.rev-year-table .col-rate { white-space: nowrap; min-width: 4.5rem; }
+.rev-page #rev-profit-table .rev-year-total td {
+  padding-top: 10px;
+  padding-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-800);
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--ink-200);
+}
+.rev-page #rev-profit-table .rev-year-total .rev-total-label { color: var(--ink-500); font-weight: 600; }
+.rev-page #rev-profit-table .rev-year-total .num { font-variant-numeric: tabular-nums; text-align: right; }
+/* 수익 탭 표 머리 도움말(원가) */
+.rev-th-tip { margin-left: 4px; }
+.rev-th-tip::after {
+  white-space: normal;
+  width: max-content;
+  min-width: 12rem;
+  max-width: 18rem;
+  text-align: left;
+  font-weight: 400;
+}
+/* 수익 탭 접기: 그룹·프로젝트 줄을 눌러 펼친다 */
+.rev-page #rev-profit-table .rev-profit-toggle { cursor: pointer; }
+.rev-page #rev-profit-table .rev-profit-toggle:hover td { background: var(--brand-subtle); }
+.rev-page #rev-profit-table .rev-profit-toggle:focus-visible { outline: 2px solid var(--brand-600); outline-offset: -2px; }
+.rev-profit-chev { width: 14px; height: 14px; vertical-align: middle; color: var(--ink-500); transition: transform .15s; }
+.rev-profit-toggle.is-open .rev-profit-chev { transform: rotate(90deg); }
+/* 개발·운영 프로젝트 소계 */
+.rev-page #rev-profit-table .rev-profit-subtotal td {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-700);
+  border-bottom: 1px dashed var(--ink-200);
+}
+.rev-page #rev-profit-table .rev-profit-subtotal .num { font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 1100px) {
+  .rev-profit-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .rev-profit-kpis { grid-template-columns: 1fr; }
+}
 .rev-toolbar .rev-save-hint {
   margin: 0;
   max-width: 36rem;
@@ -2560,3 +2616,19 @@ body.rev-modal-open { overflow: hidden; }
   opacity: .5;
   pointer-events: none;
 }
+
+/* viewer(조회 전용): 추가·삭제 버튼과 액션 열을 숨기고 행 클릭 표시를 끈다 */
+.rev-page[data-readonly="1"] [data-action="add-row"],
+.rev-page[data-readonly="1"] [data-action="add-tpl"],
+.rev-page[data-readonly="1"] #rev-list-table .col-actions,
+.rev-page[data-readonly="1"] #rev-tpl-table .col-actions { display: none; }
+.rev-page[data-readonly="1"] #rev-list-table tbody tr.rev-row.is-click,
+.rev-page[data-readonly="1"] #rev-tpl-table tbody tr.rev-row.is-click { cursor: default; }
+.rev-page[data-readonly="1"] #rev-list-table tbody tr.rev-row.is-click:hover td,
+.rev-page[data-readonly="1"] #rev-tpl-table tbody tr.rev-row.is-click:hover td { background: transparent; box-shadow: none; }
+.rev-page[data-readonly="1"] #rev-list-table tbody tr.rev-row.is-click:hover .col-project,
+.rev-page[data-readonly="1"] #rev-tpl-table tbody tr.rev-row.is-click:hover .col-project { text-decoration: none; }
+
+/* 수익 탭 행: 눌러서 수입 편집 모달을 연다 */
+.rev-page #rev-profit-table tbody tr.rev-profit-row { cursor: pointer; }
+.rev-page #rev-profit-table tbody tr.rev-profit-row:hover td { background: var(--brand-subtle); }

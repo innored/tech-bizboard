@@ -343,6 +343,50 @@ class Database
                 $driver === 'mysql' ? "VARCHAR(100) NOT NULL DEFAULT ''" : "TEXT NOT NULL DEFAULT ''"
             );
         }
+
+        // 수익 탭: 솔루션구분·집행금액·테크피 (컬럼이 처음 생길 때만 기존 솔루션 백필)
+        foreach (['tb_team_revenues', 'tb_revenue_templates'] as $table) {
+            if (!self::hasTable($pdo, $table)) {
+                continue;
+            }
+            $fresh = !self::hasColumn($pdo, $table, 'solution_group');
+            self::ensureColumn(
+                $pdo,
+                $table,
+                'solution_group',
+                $driver === 'mysql' ? "VARCHAR(10) NOT NULL DEFAULT ''" : "TEXT NOT NULL DEFAULT ''"
+            );
+            self::ensureColumn(
+                $pdo,
+                $table,
+                'campaign_spend_krw',
+                $driver === 'mysql' ? 'BIGINT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'
+            );
+            self::ensureColumn($pdo, $table, 'tech_fee_rate', $driver === 'mysql' ? 'DECIMAL(5,2) NULL' : 'REAL');
+            // 개발비·유지보수 원가(수익 = 공급가 - 원가)
+            self::ensureColumn(
+                $pdo,
+                $table,
+                'cost_krw',
+                $driver === 'mysql' ? 'BIGINT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'
+            );
+            self::ensureColumn(
+                $pdo,
+                $table,
+                'cost_note',
+                $driver === 'mysql' ? "VARCHAR(255) NOT NULL DEFAULT ''" : "TEXT NOT NULL DEFAULT ''"
+            );
+            if ($fresh) {
+                $pdo->exec(
+                    "UPDATE {$table} SET solution_group = 'GENERAL'
+                     WHERE service_category = '솔루션' AND solution_id = 'sr_royalcanin'"
+                );
+                $pdo->exec(
+                    "UPDATE {$table} SET solution_group = 'ADTECH'
+                     WHERE service_category = '솔루션' AND solution_id = 'lift_optima'"
+                );
+            }
+        }
     }
 
     private static function hasTable(PDO $pdo, string $table): bool

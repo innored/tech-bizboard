@@ -11,7 +11,7 @@ $rev->setCreatedBy('lucy@innored.co.kr');
 // 유상 + 서비스구분
 $paid = $rev->createOneOff([
     'project_name' => '솔루션 연동', 'assignee' => '루시', 'received_date' => '2026-09-10',
-    'service_category' => '솔루션', 'billing_type' => 'PAID', 'supply_krw' => 1000000,
+    'service_category' => '솔루션', 'solution_group' => 'GENERAL', 'billing_type' => 'PAID', 'supply_krw' => 1000000,
 ]);
 expect_eq((string) $paid['service_category'], '솔루션', '유상 서비스구분 저장');
 expect_eq((int) $paid['amount_krw'], 1100000, '유상 합계 = 공급가+부가세');
@@ -42,7 +42,7 @@ expect_eq((int) $toPaid['list_value_krw'], 0, '무상→유상: 정상가 0');
 // 우리 솔루션: 서비스구분=솔루션일 때만 저장, 그 외엔 비움
 $withSol = $rev->createOneOff([
     'project_name' => '솔루션 건', 'assignee' => '루시', 'received_date' => '2026-10-07',
-    'service_category' => '솔루션', 'billing_type' => 'PAID', 'supply_krw' => 100000,
+    'service_category' => '솔루션', 'solution_group' => 'GENERAL', 'billing_type' => 'PAID', 'supply_krw' => 100000,
     'solution_id' => 'lift_optima', 'solution_name' => 'Lift Optima',
 ]);
 expect_eq((string) $withSol['solution_name'], 'Lift Optima', '솔루션: 우리 솔루션 이름 저장');
