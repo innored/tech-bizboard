@@ -2798,7 +2798,7 @@ body.rev-modal-open { overflow: hidden; }
 .rev-pt-scroll { overflow-x: auto; }
 .rev-pt { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
 .rev-pt th,
-.rev-pt td { padding: 9px 14px; text-align: left; white-space: nowrap; vertical-align: middle; }
+.rev-pt td { padding: 9px 12px; text-align: left; white-space: nowrap; vertical-align: middle; }
 .rev-pt th.num,
 .rev-pt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .rev-pt thead th {
@@ -2868,3 +2868,29 @@ body.rev-modal-open { overflow: hidden; }
 .rev-pt .rev-pt-row.is-click { cursor: pointer; }
 .rev-pt .rev-pt-row.is-click:hover td { background: var(--brand-subtle); }
 .rev-pt .rev-empty-cell { padding: 28px 14px; text-align: center; color: var(--ink-500); }
+
+/* 수익 표 메모: 아이콘 + 툴팁(줄바꿈 유지, 왼쪽으로 띄워 표 오른쪽 끝에서 잘리지 않게) */
+.rev-pt .col-note { width: 1%; text-align: center; }
+.rev-pt-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--brand-600);
+  background: var(--brand-subtle);
+  cursor: help;
+  vertical-align: middle;
+}
+.rev-pt-note svg { width: 14px; height: 14px; }
+.rev-pt-note:focus-visible { outline: 2px solid var(--brand-600); outline-offset: 1px; }
+.rev-pt-note::after {
+  white-space: pre-line;
+  width: max-content;
+  min-width: 10rem;
+  max-width: 20rem;
+  text-align: left;
+  font-weight: 400;
+  line-height: 1.5;
+}

@@ -32,7 +32,7 @@ if (!in_array((int) $year, $years, true)) {
 $keys = [
     'id', 'target_year_month', 'received_date', 'project_name', 'client_name', 'service_category',
     'solution_name', 'solution_group', 'campaign_spend_krw', 'tech_fee_rate', 'supply_krw',
-    'cost_krw', 'cost_note', 'billing_type',
+    'cost_krw', 'cost_note', 'billing_type', 'note',
 ];
 $rows = [];
 foreach (tbb_revenues()->listByYear($year) as $row) {

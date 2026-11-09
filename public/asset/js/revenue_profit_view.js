@@ -13,7 +13,8 @@
     { key: '', label: '미분류', cls: 'is-none' }
   ];
   var GROUP_CLASS = { ADTECH: 'is-adtech', GENERAL: 'is-general', PROJECT: 'is-project', '': 'is-none' };
-  var COLS = 10;
+  var COLS = 11;
+  var NOTE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg>';
   var EMPTY_TEXT = '유상 수입이 없습니다.';
   var CHEVRON = '<svg class="rev-profit-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
 
@@ -31,6 +32,13 @@
 
   function toast(title, body, kind) {
     if (typeof root.tbbToast === 'function') root.tbbToast(title, body, kind);
+  }
+
+  /* 메모: 있으면 아이콘, 마우스를 올리거나 Tab으로 가면 내용이 뜬다. 없으면 빈칸 */
+  function noteHtml(note) {
+    var text = String(note == null ? '' : note).trim();
+    if (!text) return '';
+    return '<span class="tooltip tooltip-left rev-pt-note" tabindex="0" data-tooltip="' + esc(text) + '" aria-label="메모: ' + esc(text) + '">' + NOTE_ICON + '</span>';
   }
 
   /* 수익 금액 칸. 마이너스는 빨간색 */
@@ -125,6 +133,7 @@
           '<td class="num col-money">' + costCell + '</td>' +
           '<td class="num col-money">' + moneyHtml(api.rowProfit(row)) + '</td>' +
           '<td class="num col-rate">' + esc(rateCell) + '</td>' +
+          '<td class="col-note">' + noteHtml(row.note) + '</td>' +
         '</tr>'
       );
     }
@@ -147,6 +156,7 @@
           '<td class="num col-money">' + (spec.key === 'PROJECT' ? fmt(sum.project.cost) : '') + '</td>' +
           '<td class="num col-money">' + moneyHtml(profit) + '</td>' +
           '<td class="num col-rate">' + esc(rate) + '</td>' +
+          '<td class="col-note"></td>' +
         '</tr>'
       );
     }
@@ -163,6 +173,7 @@
           '<td class="num col-money">' + fmt(t.cost) + '</td>' +
           '<td class="num col-money">' + moneyHtml(t.profit) + '</td>' +
           '<td class="num col-rate">' + esc(api.formatRate(api.rate(t.profit, t.sales))) + '</td>' +
+          '<td class="col-note"></td>' +
         '</tr>'
       );
     }
