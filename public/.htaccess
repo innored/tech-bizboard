@@ -25,7 +25,8 @@ Options -Indexes
     RewriteRule ^sso/([a-z_]+)/?$ sso/$1.php [L,QSA]
 
     # 5) 페이지
-    RewriteRule ^(drafts|revenues|settings|login|api-usage)/?$ $1.php [L,QSA]
+    #    상위 tech-bizboard/.htaccess 의 페이지 목록과 같아야 한다(tests/htaccess_routes_test.php 가 검사)
+    RewriteRule ^(drafts|revenues|settings|login|api-usage|leadership)/?$ $1.php [L,QSA]
 
     # 6) 루트 → 대시보드
     RewriteRule ^$ index.php [L,QSA]
